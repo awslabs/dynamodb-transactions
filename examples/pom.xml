@@ -1,0 +1,61 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/maven-v4_0_0.xsd">
+    
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.amazonaws.services.dynamodbv2</groupId>
+    <artifactId>amazon-dynamodb-transactions-examples</artifactId>
+    <packaging>jar</packaging>
+    <name>Examples for the Amazon DynamoDB Transactions on the AWS SDK for Java</name>
+    <version>1.0.0</version>
+    <description>Runnable examples of using transactions</description>
+    <url>https://aws.amazon.com/dynamodb</url>
+
+    <scm>
+        <url>https://github.com/awslabs/dynamodb-transactions.git</url>
+    </scm>
+
+    <licenses>
+        <license>
+            <name>Amazon Software License</name>
+            <url>http://aws.amazon.com/asl/</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.amazonaws.services.dynamodbv2</groupId>
+            <artifactId>amazon-dynamodb-transactions</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+    </dependencies>
+
+    <developers>
+        <developer>
+            <id>amazonwebservices</id>
+            <organization>Amazon Web Services</organization>
+            <organizationUrl>https://aws.amazon.com</organizationUrl>
+            <roles>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <build>
+      <pluginManagement>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <source>1.6</source>
+              <target>1.6</target>
+              <encoding>UTF-8</encoding>
+            </configuration>
+          </plugin>
+        </plugins>
+      </pluginManagement>
+    </build>
+
+</project>

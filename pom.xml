@@ -1,0 +1,89 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.amazonaws.services.dynamodbv2</groupId>
+    <artifactId>amazon-dynamodb-transactions</artifactId>
+    <packaging>jar</packaging>
+    <name>Amazon DynamoDB Transactions on the AWS SDK for Java</name>
+    <version>1.0.0</version>
+    <description>Amazon DynamoDB Transactions on the AWS SDK for Java provide client-side multi-item, multi-table transactions on top of Amazon DynamoDB.</description>
+    <url>https://aws.amazon.com/dynamodb</url>
+
+    <scm>
+        <url>https://github.com/awslabs/dynamodb-transactions.git</url>
+    </scm>
+
+    <licenses>
+        <license>
+            <name>Amazon Software License</name>
+            <url>http://aws.amazon.com/asl/</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <properties>
+        <aws-java-sdk.version>1.4.7</aws-java-sdk.version>
+    </properties>
+
+    <dependencies>
+        <!-- The AWS SDK for Java, and its dependencies on libraries like Jackson, are required -->
+        <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk</artifactId>
+            <version>${aws-java-sdk.version}</version>
+        </dependency>
+
+        <!-- JUnit is needed to compile the integration test classes -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.11</version>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+
+    <developers>
+        <developer>
+            <id>amazonwebservices</id>
+            <organization>Amazon Web Services</organization>
+            <organizationUrl>https://aws.amazon.com</organizationUrl>
+            <roles>
+                <role>developer</role>
+            </roles>
+        </developer>
+    </developers>
+
+    <build>
+      <pluginManagement>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <source>1.6</source>
+              <target>1.6</target>
+              <encoding>UTF-8</encoding>
+            </configuration>
+          </plugin>
+        </plugins>
+      </pluginManagement>
+
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <executions>
+            <execution>
+              <id>sign-artifacts</id>
+              <phase>verify</phase>
+              <goals>
+                <goal>sign</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </build>
+
+</project>

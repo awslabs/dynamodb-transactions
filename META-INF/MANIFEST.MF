@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Amazon DynamoDB Transactions on the AWS SDK for Java
+Bundle-SymbolicName: com.amazonaws.services.dynamodbv2;singleton:=true
+Bundle-Version: 1.0.0
+Bundle-Vendor: Amazon Technologies, Inc
+Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Export-Package: com.amazonaws.services.dynamodbv2.transactions,
+ com.amazonaws.services.dynamodbv2.transactions.examples,
+ com.amazonaws.services.dynamodbv2.transactions.exceptions
