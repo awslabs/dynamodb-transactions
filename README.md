@@ -26,8 +26,13 @@ The **Amazon DynamoDB Transactions** library is built on top of the low-level Am
 
 1. **Sign up for AWS** - Before you begin, you need an AWS account. Please see the [AWS Account and Credentials][docs-signup] section of the developer guide for information about how to create an AWS account and retrieve your AWS credentials.
 1. **Minimum requirements** - To run the SDK you will need **Java 1.6+**. For more information about the requirements and optimum settings for the SDK, please see the [Java Development Environment][docs-signup] section of the developer guide.
-1. **Install the Amazon DynamoDB Transactions Library** - Using ***Maven*** is the recommended way to install the Amazon DynamoDB Transactions Library and its dependencies, including the AWS SDK for Java. Please see the [Install the AWS SDK for Java][docs-signup] section of the user guide for more detailed information about installing the AWS SDK for Java through other means.
-1. **Run the examples** - The included class *com.amazonaws.services.dynamodbv2.transactions.examples.TransactionExamples* automatically creates the necessary transactions tables, an example table for data and executes several operations with transactions.  You can run the examples using Maven by changing into the *examples* directory of the project, adding your AWS Credentials to the file *src/main/resources/com/amazonaws/services/dynamodbv2/transactions/examples/AwsCredentials.properties*, and typing: `mvn exec:java -Dexec.mainClass="com.amazonaws.services.dynamodbv2.transactions.examples.TransactionExamples"` 
+1. **Install the Amazon DynamoDB Transactions Library** - Using ***Maven*** is the recommended way to install the Amazon DynamoDB Transactions Library and its dependencies, including the AWS SDK for Java.  To download the code from GitHub, simply clone the repository by typing: `git clone https://github.com/awslabs/dynamodb-transactions`, and run the Maven command described below in "Building From Source".
+1. **Run the examples** - The included *TransactionExamples* automatically creates the necessary transactions tables, an example table for data and executes several operations with transactions.  You can run the examples using Maven by:
+  1.  Ensure you have already built the library using Maven (see "Building From Source" below)
+  2.  Change into the *examples* directory of the project
+  2.  Add your AWS Credentials to the file: *src/main/resources/com/amazonaws/services/dynamodbv2/transactions/examples/AwsCredentials.properties*
+  3.  Compile the subproject by typing: `mvn clean install`
+  4.  Run the examples by typing: `mvn exec:java -Dexec.mainClass="com.amazonaws.services.dynamodbv2.transactions.examples.TransactionExamples"` 
 
 ## Building From Source
 
