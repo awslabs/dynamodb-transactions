@@ -1,6 +1,6 @@
-# From CD to ACID: Adding Consistency and Isolation to DynamoDB
+# From CD to ACID: Adding Atomicity and Isolation to DynamoDB
 
-Out of the box, DynamoDB provides two of the four ACID properties: Consistency and Durability. Within a single item, you also get Atomicity and Isolation, but when your application needs to involve multiple items you lose those properties.  Sometimes that’s good enough, but many applications, especially distributed applications, would appreciate some of that Atomicity and Isolation as well. Fortunately, DynamoDB provides the tools (especially optimistic concurrency control) so that an application can achieve these properties and have full ACID transactions.
+Out of the box, DynamoDB provides two of the four ACID properties: Consistency and Durability. Within a single item, you also get Atomicity and Isolation, but when your application needs to involve multiple items you lose those properties.  Sometimes that's good enough, but many applications, especially distributed applications, would appreciate some of that Atomicity and Isolation as well. Fortunately, DynamoDB provides the tools (especially optimistic concurrency control) so that an application can achieve these properties and have full ACID transactions.
 
 This document outlines a technique for achieving atomic and (optionally) isolated transactions using DynamoDB. The atomicity strategy is a multi-phase commit protocol. To avoid losing data on coordinator failure, the coordinator state is maintained in DynamoDB. To avoid the need for failure detection, the protocol is designed so that there can be many active coordinators working on the same transaction. Isolation is available at various isolation levels, which is described later.
 
