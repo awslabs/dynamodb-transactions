@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -1702,6 +1703,28 @@ public class TransactionsIntegrationTest {
         
         t1.delete(Long.MAX_VALUE);
         t2.delete(Long.MAX_VALUE);
+    }
+    
+    @Test
+    public void containsBinaryAttributes() {
+        Transaction t1 = manager.newTransaction();
+        Map<String, AttributeValue> key = newKey(getHashTableName());
+        Map<String, AttributeValue> item = new HashMap<String, AttributeValue>(key);
+        
+        item.put("attr_b", new AttributeValue().withB(ByteBuffer.wrap(new String("asdf\n\t\u0123").getBytes())));
+        item.put("attr_bs", new AttributeValue().withBS(
+                ByteBuffer.wrap(new String("asdf\n\t\u0123").getBytes()), 
+                ByteBuffer.wrap(new String("wef").getBytes())));
+        
+        t1.putItem(new PutItemRequest()
+                .withTableName(getHashTableName())
+                .withItem(item));
+        
+        assertItemLocked(getHashTableName(), key, item, t1.getId(), true, true);
+        
+        t1.commit();
+        
+        assertItemNotLocked(getHashTableName(), key, item, true);
     }
     
     @Test

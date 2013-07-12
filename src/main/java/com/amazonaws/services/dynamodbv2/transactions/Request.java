@@ -25,15 +25,24 @@ import java.util.Map;
 import java.util.Set;
 
 import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.JsonGenerator;
 import org.codehaus.jackson.JsonParseException;
+import org.codehaus.jackson.JsonParser;
+import org.codehaus.jackson.JsonProcessingException;
+import org.codehaus.jackson.Version;
 import org.codehaus.jackson.annotate.JsonIgnore;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonSubTypes.Type;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
 import org.codehaus.jackson.annotate.JsonTypeName;
+import org.codehaus.jackson.map.DeserializationContext;
+import org.codehaus.jackson.map.JsonDeserializer;
 import org.codehaus.jackson.map.JsonMappingException;
+import org.codehaus.jackson.map.JsonSerializer;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.codehaus.jackson.map.SerializationConfig;
+import org.codehaus.jackson.map.SerializerProvider;
+import org.codehaus.jackson.map.module.SimpleModule;
 import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
 
 import com.amazonaws.RequestClientOptions;
@@ -384,6 +393,12 @@ public abstract class Request {
         MAPPER.getDeserializationConfig().addMixInAnnotations(DeleteItemRequest.class, RequestMixIn.class);
         MAPPER.getSerializationConfig().addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
         MAPPER.getDeserializationConfig().addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
+        
+        // Deal with serializing of byte[].
+        SimpleModule module = new SimpleModule("custom", Version.unknownVersion());
+        module.addSerializer(ByteBuffer.class, new ByteBufferSerializer());
+        module.addDeserializer(ByteBuffer.class, new ByteBufferDeserializer());
+        MAPPER.registerModule(module);
     };
     
     protected static ByteBuffer serialize(String txId, Object request) {
@@ -469,12 +484,35 @@ public abstract class Request {
         public abstract boolean isConsistentRead();
         
     }
-    
-    
+        
     private static abstract class AttributeValueUpdateMixIn {
 
         @JsonIgnore
         public abstract void setAction(AttributeAction attributeAction);
         
     }
+
+    private static class ByteBufferSerializer extends JsonSerializer<ByteBuffer> {
+        
+        @Override
+        public void serialize(ByteBuffer value, JsonGenerator jgen,
+                SerializerProvider provider) throws IOException,
+                JsonProcessingException {
+            // value is never null, according to JsonSerializer contract
+            jgen.writeBinary(value.array());
+        }
+        
+    }
+    
+    private static class ByteBufferDeserializer extends JsonDeserializer<ByteBuffer> {
+        
+        @Override
+        public ByteBuffer deserialize(JsonParser jp, DeserializationContext ctxt)
+                throws IOException, JsonProcessingException {
+            // never called for null literal, according to JsonDeserializer contract
+            return ByteBuffer.wrap(jp.getBinaryValue());
+        }
+        
+    }
+    
 }

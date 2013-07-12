@@ -14,9 +14,11 @@
  */
 package com.amazonaws.services.dynamodbv2.transactions;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +28,7 @@ import org.junit.Test;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.ExpectedAttributeValue;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
@@ -151,6 +154,61 @@ public class RequestTest {
             .withTableName(TABLE_NAME)
             .withKey(item));
         r.validate("1", new MockTransactionManager(HASH_SCHEMA));
+    }
+    
+    @Test
+    public void roundTripGetString() {
+        GetItem r1 = new GetItem();
+        Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
+        item.put(HASH_ATTR_NAME, new AttributeValue("a"));
+        r1.setRequest(new GetItemRequest()
+            .withTableName(TABLE_NAME)
+            .withKey(item));
+        byte[] r1Bytes = Request.serialize("123", r1).array();
+        Request r2 = Request.deserialize("123", ByteBuffer.wrap(r1Bytes));
+        byte[] r2Bytes = Request.serialize("123", r2).array();
+        assertArrayEquals(r1Bytes, r2Bytes);
+    }
+    
+    @Test
+    public void roundTripPutAll() {
+        PutItem r1 = new PutItem();
+        Map<String, AttributeValue> item = new HashMap<String, AttributeValue>();
+        item.put(HASH_ATTR_NAME, new AttributeValue("a"));
+        item.put("attr_ss", new AttributeValue().withSS("a", "b"));
+        item.put("attr_n", new AttributeValue().withN("1"));
+        item.put("attr_ns", new AttributeValue().withNS("1", "2"));
+        item.put("attr_b", new AttributeValue().withB(ByteBuffer.wrap(new String("asdf").getBytes())));
+        item.put("attr_bs", new AttributeValue().withBS(ByteBuffer.wrap(new String("asdf").getBytes()), ByteBuffer.wrap(new String("asdf").getBytes())));
+        r1.setRequest(new PutItemRequest()
+            .withTableName(TABLE_NAME)
+            .withItem(item));
+        byte[] r1Bytes = Request.serialize("123", r1).array();
+        Request r2 = Request.deserialize("123", ByteBuffer.wrap(r1Bytes));
+        byte[] r2Bytes = Request.serialize("123", r2).array();
+        assertArrayEquals(r1Bytes, r2Bytes);
+    }
+    
+    @Test
+    public void roundTripUpdateAll() {
+        UpdateItem r1 = new UpdateItem();
+        Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
+        key.put(HASH_ATTR_NAME, new AttributeValue("a"));
+        
+        Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
+        updates.put("attr_ss", new AttributeValueUpdate().withAction("PUT").withValue(new AttributeValue().withSS("a", "b")));
+        updates.put("attr_n", new AttributeValueUpdate().withAction("PUT").withValue(new AttributeValue().withN("1")));
+        updates.put("attr_ns", new AttributeValueUpdate().withAction("PUT").withValue(new AttributeValue().withNS("1", "2")));
+        updates.put("attr_b", new AttributeValueUpdate().withAction("PUT").withValue(new AttributeValue().withB(ByteBuffer.wrap(new String("asdf").getBytes()))));
+        updates.put("attr_bs", new AttributeValueUpdate().withAction("PUT").withValue(new AttributeValue().withBS(ByteBuffer.wrap(new String("asdf").getBytes()), ByteBuffer.wrap(new String("asdf").getBytes()))));
+        r1.setRequest(new UpdateItemRequest()
+            .withTableName(TABLE_NAME)
+            .withKey(key)
+            .withAttributeUpdates(updates));
+        byte[] r1Bytes = Request.serialize("123", r1).array();
+        Request r2 = Request.deserialize("123", ByteBuffer.wrap(r1Bytes));
+        byte[] r2Bytes = Request.serialize("123", r2).array();
+        assertArrayEquals(r1Bytes, r2Bytes);
     }
     
     protected class MockTransactionManager extends TransactionManager {
