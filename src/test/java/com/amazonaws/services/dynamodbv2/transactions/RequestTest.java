@@ -15,6 +15,7 @@
 package com.amazonaws.services.dynamodbv2.transactions;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -182,9 +183,11 @@ public class RequestTest {
         item.put("attr_bs", new AttributeValue().withBS(ByteBuffer.wrap(new String("asdf").getBytes()), ByteBuffer.wrap(new String("asdf").getBytes())));
         r1.setRequest(new PutItemRequest()
             .withTableName(TABLE_NAME)
-            .withItem(item));
+            .withItem(item)
+            .withReturnValues("ALL_OLD"));
         byte[] r1Bytes = Request.serialize("123", r1).array();
         Request r2 = Request.deserialize("123", ByteBuffer.wrap(r1Bytes));
+        assertEquals(r1.getRequest(), ((PutItem)r2).getRequest());
         byte[] r2Bytes = Request.serialize("123", r2).array();
         assertArrayEquals(r1Bytes, r2Bytes);
     }

@@ -31,6 +31,7 @@ import org.codehaus.jackson.JsonParser;
 import org.codehaus.jackson.JsonProcessingException;
 import org.codehaus.jackson.Version;
 import org.codehaus.jackson.annotate.JsonIgnore;
+import org.codehaus.jackson.annotate.JsonProperty;
 import org.codehaus.jackson.annotate.JsonSubTypes;
 import org.codehaus.jackson.annotate.JsonSubTypes.Type;
 import org.codehaus.jackson.annotate.JsonTypeInfo;
@@ -474,14 +475,26 @@ public abstract class Request {
         @JsonIgnore
         public abstract void setReturnValues(ReturnValue returnValue);
         
+        @JsonProperty
+        public abstract void setReturnValues(String returnValue);
+        
         @JsonIgnore
         public abstract void setReturnConsumedCapacity(ReturnConsumedCapacity returnConsumedCapacity);
+        
+        @JsonProperty
+        public abstract void setReturnConsumedCapacity(String returnConsumedCapacity);
         
         @JsonIgnore
         public abstract void setReturnItemCollectionMetrics(ReturnItemCollectionMetrics returnItemCollectionMetrics);
         
+        @JsonProperty
+        public abstract void setReturnItemCollectionMetrics(String returnItemCollectionMetrics);
+        
         @JsonIgnore
         public abstract boolean isConsistentRead();
+        
+        @JsonProperty
+        public abstract boolean getConsistentRead();
         
     }
         
@@ -489,6 +502,9 @@ public abstract class Request {
 
         @JsonIgnore
         public abstract void setAction(AttributeAction attributeAction);
+        
+        @JsonProperty
+        public abstract void setAction(String attributeAction);
         
     }
 
