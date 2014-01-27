@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2013-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License"). 
  * You may not use this file except in compliance with the License. 
@@ -26,6 +26,8 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
@@ -74,8 +76,14 @@ public class TransactionManager {
     private final String transactionTableName;
     private final String itemImageTableName;
     private final ConcurrentHashMap<String, List<KeySchemaElement>> tableSchemaCache = new ConcurrentHashMap<String, List<KeySchemaElement>>();
+    private final DynamoDBMapper clientMapper;
+    private final ThreadLocalDynamoDBFacade facadeProxy;
     
     public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName) {
+    	this(client, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
+    }
+
+    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
         if(client == null) {
             throw new IllegalArgumentException("client must not be null");
         }
@@ -88,6 +96,8 @@ public class TransactionManager {
         this.client = client;
         this.transactionTableName = transactionTableName;
         this.itemImageTableName = itemImageTableName;
+        this.facadeProxy = new ThreadLocalDynamoDBFacade();
+        this.clientMapper = new DynamoDBMapper(facadeProxy, config);
     }
     
     protected List<KeySchemaElement> getTableSchema(String tableName) throws ResourceNotFoundException {
@@ -124,6 +134,14 @@ public class TransactionManager {
 
     public AmazonDynamoDB getClient() {
         return client;
+    }
+
+    public DynamoDBMapper getClientMapper() {
+        return clientMapper;
+    }
+
+    protected ThreadLocalDynamoDBFacade getFacadeProxy() {
+        return facadeProxy;
     }
 
     public GetItemResult getItem(GetItemRequest request, IsolationLevel isolationLevel) {
@@ -229,5 +247,29 @@ public class TransactionManager {
             return comp;
         }
         
+    }
+
+    /**
+     * Load an item outside a transaction using the mapper.
+     *
+     * @param item
+     *            An item where the key attributes are populated; the key
+     *            attributes from this item are used to form the GetItemRequest
+     *            to retrieve the item.
+     * @param isolationLevel
+     *            The isolation level to use; this has the same meaning as for
+     *            {@link TransactionManager#getItem(GetItemRequest, IsolationLevel)}
+     *            .
+     * @return An instance of the item class with all attributes populated from
+     *         the table, or null if the item does not exist.
+     */
+    public <T> T load(T item,
+            IsolationLevel isolationLevel) {
+        try {
+            getFacadeProxy().setBackend(new TransactionManagerDynamoDBFacade(this, isolationLevel));
+            return getClientMapper().load(item);
+        } finally {
+            getFacadeProxy().setBackend(null);
+        }
     }
 }

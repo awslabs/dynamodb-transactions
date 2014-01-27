@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2013-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License"). 
  * You may not use this file except in compliance with the License. 
@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.Callable;
 
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -1377,4 +1378,70 @@ public class Transaction {
             return value;
         }
     }
-}   
+
+    /**
+     * Delete an item using the mapper.
+     *
+     * @param item
+     *            An item object with key attributes populated.
+     */
+    public <T> void delete(final T item) {
+        doWithMapper(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                txManager.getClientMapper().delete(item);
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Load an item using the mapper.
+     *
+     * @param item
+     *            An item object with key attributes populated.
+     * @return An instance of the item class with all attributes populated from
+     *         the table, or null if the item does not exist as of the start of
+     *         this transaction.
+     */
+    public <T> T load(final T item) {
+        return doWithMapper(new Callable<T>() {
+            @Override
+            public T call() throws Exception {
+                return txManager.getClientMapper().load(item);
+            }
+        });
+    }
+
+    /**
+     * Save an item using the mapper.
+     *
+     * @param item
+     *            An item object with key attributes populated.
+     */
+    public <T> void save(final T item) {
+        doWithMapper(new Callable<Void>() {
+            @Override
+            public Void call() throws Exception {
+                txManager.getClientMapper().save(item);
+                return null;
+            }
+        });
+    }
+
+    private <T> T doWithMapper(Callable<T> callable) {
+        try {
+            txManager.getFacadeProxy().setBackend(new TransactionDynamoDBFacade(this, txManager));
+            return callable.call();
+        } catch (RuntimeException e) {
+            // have to do this here in order to avoid having to declare a checked exception type
+            throw e;
+        } catch (Exception e) {
+            // none of the callers of this method need to throw a checked exception
+            throw new RuntimeException(e);
+        } finally {
+            txManager.getFacadeProxy().setBackend(null);
+        }
+    }
+
+}

@@ -1,5 +1,5 @@
 /**
- * Copyright 2013-2013 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2013-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Amazon Software License (the "License"). 
  * You may not use this file except in compliance with the License. 
@@ -25,6 +25,9 @@ import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
+import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBVersionAttribute;
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -99,7 +102,9 @@ public class TransactionExamples {
         errorHandling();
         badRequest();
         readThenWrite();
+        conditionallyCreateOrUpdateWithMapper();
         reading();
+        readCommittedWithMapper();
         sweepForStuckAndOldTransactions();
     }
     
@@ -396,6 +401,83 @@ public class TransactionExamples {
         t1.delete();
     }
     
+    @DynamoDBTable(tableName = EXAMPLE_TABLE_NAME)
+    public static class ExampleItem {
+
+        private String itemId;
+        private String value;
+        private Long version;
+
+        @DynamoDBHashKey(attributeName = "ItemId")
+        public String getItemId() {
+            return itemId;
+        }
+
+        public void setItemId(String itemId) {
+            this.itemId = itemId;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+
+        @DynamoDBVersionAttribute
+        public Long getVersion() {
+            return version;
+        }
+
+        public void setVersion(Long version) {
+            this.version = version;
+        }
+
+    }
+
+    /**
+     * This example shows how to conditionally create or update an item in a transaction.
+     */
+    public void conditionallyCreateOrUpdateWithMapper() {
+        print("\n*** conditionallyCreateOrUpdateWithMapper() ***\n");
+
+        Transaction t1 = txManager.newTransaction();
+
+        print("Reading Item1");
+        ExampleItem keyItem = new ExampleItem();
+        keyItem.setItemId("Item1");
+
+        // Performs a GetItem request on the transaction
+        ExampleItem item = t1.load(keyItem);
+        if (item != null) {
+            print("Item1: " + item.getValue());
+            print("Item1 version: " + item.getVersion());
+
+            print("Updating Item1");
+            item.setValue("Magenta");
+
+            // Performs an UpdateItem request after verifying the version is unchanged as of this transaction
+            t1.save(item);
+            print("Item1 is now: " + item.getValue());
+            print("Item1 version is now: " + item.getVersion());
+        } else {
+            print("Creating Item1");
+            item = new ExampleItem();
+            item.setItemId(keyItem.getItemId());
+            item.setValue("Violet");
+
+            // Performs a CreateItem request after verifying the version attribute is not set as of this transaction
+            t1.save(item);
+
+            print("Item1 is now: " + item.getValue());
+            print("Item1 version is now: " + item.getVersion());
+        }
+
+        t1.commit();
+        t1.delete();
+    }
+
     /**
      * Demonstrates the 3 levels of supported read isolation: Uncommitted, Committed, Locked
      */
@@ -486,6 +568,20 @@ public class TransactionExamples {
         }
     }
     
+    /**
+     * Demonstrates reading with COMMITTED isolation level using the mapper.
+     */
+    public void readCommittedWithMapper() {
+        print("\n*** readCommittedWithMapper() ***\n");
+
+        print("Reading Item1 with IsolationLevel.COMMITTED");
+        ExampleItem keyItem = new ExampleItem();
+        keyItem.setItemId("Item1");
+        ExampleItem item = txManager.load(keyItem, IsolationLevel.COMMITTED);
+
+        print("Committed value of Item1: " + item.getValue());
+    }
+
     public void sweepForStuckAndOldTransactions() {
         print("\n*** sweepForStuckAndOldTransactions() ***\n");
         
