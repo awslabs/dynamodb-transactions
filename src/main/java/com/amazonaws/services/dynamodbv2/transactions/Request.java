@@ -24,27 +24,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.JsonGenerator;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.JsonParser;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.Version;
-import org.codehaus.jackson.annotate.JsonIgnore;
-import org.codehaus.jackson.annotate.JsonProperty;
-import org.codehaus.jackson.annotate.JsonSubTypes;
-import org.codehaus.jackson.annotate.JsonSubTypes.Type;
-import org.codehaus.jackson.annotate.JsonTypeInfo;
-import org.codehaus.jackson.annotate.JsonTypeName;
-import org.codehaus.jackson.map.DeserializationContext;
-import org.codehaus.jackson.map.JsonDeserializer;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.JsonSerializer;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.map.SerializationConfig;
-import org.codehaus.jackson.map.SerializerProvider;
-import org.codehaus.jackson.map.module.SimpleModule;
-import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.Version;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.annotation.JsonTypeName;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import com.amazonaws.RequestClientOptions;
 import com.amazonaws.auth.AWSCredentials;
@@ -382,18 +382,13 @@ public abstract class Request {
     
     static {
         MAPPER = new ObjectMapper();
-        MAPPER.configure(SerializationConfig.Feature.INDENT_OUTPUT, false);
-        MAPPER.getSerializationConfig().setSerializationInclusion(Inclusion.NON_NULL);
-        MAPPER.getSerializationConfig().addMixInAnnotations(GetItemRequest.class, RequestMixIn.class);
-        MAPPER.getDeserializationConfig().addMixInAnnotations(GetItemRequest.class, RequestMixIn.class);
-        MAPPER.getSerializationConfig().addMixInAnnotations(PutItemRequest.class, RequestMixIn.class);
-        MAPPER.getDeserializationConfig().addMixInAnnotations(PutItemRequest.class, RequestMixIn.class);
-        MAPPER.getSerializationConfig().addMixInAnnotations(UpdateItemRequest.class, RequestMixIn.class);
-        MAPPER.getDeserializationConfig().addMixInAnnotations(UpdateItemRequest.class, RequestMixIn.class);
-        MAPPER.getSerializationConfig().addMixInAnnotations(DeleteItemRequest.class, RequestMixIn.class);
-        MAPPER.getDeserializationConfig().addMixInAnnotations(DeleteItemRequest.class, RequestMixIn.class);
-        MAPPER.getSerializationConfig().addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
-        MAPPER.getDeserializationConfig().addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
+        MAPPER.disable(SerializationFeature.INDENT_OUTPUT);
+        MAPPER.setSerializationInclusion(Include.NON_NULL);
+        MAPPER.addMixInAnnotations(GetItemRequest.class, RequestMixIn.class);
+        MAPPER.addMixInAnnotations(PutItemRequest.class, RequestMixIn.class);
+        MAPPER.addMixInAnnotations(UpdateItemRequest.class, RequestMixIn.class);
+        MAPPER.addMixInAnnotations(DeleteItemRequest.class, RequestMixIn.class);
+        MAPPER.addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
         
         // Deal with serializing of byte[].
         SimpleModule module = new SimpleModule("custom", Version.unknownVersion());

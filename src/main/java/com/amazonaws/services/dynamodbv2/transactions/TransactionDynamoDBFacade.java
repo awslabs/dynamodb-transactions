@@ -15,6 +15,7 @@
 package com.amazonaws.services.dynamodbv2.transactions;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 import com.amazonaws.AmazonClientException;
@@ -23,11 +24,14 @@ import com.amazonaws.AmazonWebServiceRequest;
 import com.amazonaws.ResponseMetadata;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
 import com.amazonaws.services.dynamodbv2.model.BatchGetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.BatchGetItemResult;
 import com.amazonaws.services.dynamodbv2.model.BatchWriteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.BatchWriteItemResult;
+import com.amazonaws.services.dynamodbv2.model.Condition;
 import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.CreateTableResult;
@@ -40,8 +44,11 @@ import com.amazonaws.services.dynamodbv2.model.DescribeTableResult;
 import com.amazonaws.services.dynamodbv2.model.ExpectedAttributeValue;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes;
 import com.amazonaws.services.dynamodbv2.model.ListTablesRequest;
 import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
+import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
 import com.amazonaws.services.dynamodbv2.model.PutItemResult;
 import com.amazonaws.services.dynamodbv2.model.QueryRequest;
@@ -52,6 +59,7 @@ import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemResult;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableResult;
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 
 /**
  * Facade for {@link AmazonDynamoDB} that forwards requests to a
@@ -263,6 +271,174 @@ public class TransactionDynamoDBFacade implements AmazonDynamoDB {
 
     @Override
     public UpdateTableResult updateTable(UpdateTableRequest arg0)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ScanResult scan(String tableName, List<String> attributesToGet)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ScanResult scan(String tableName, Map<String, Condition> scanFilter)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ScanResult scan(String tableName, List<String> attributesToGet,
+            Map<String, Condition> scanFilter) throws AmazonServiceException,
+            AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public UpdateTableResult updateTable(String tableName,
+            ProvisionedThroughput provisionedThroughput)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public DeleteTableResult deleteTable(String tableName)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public BatchWriteItemResult batchWriteItem(
+            Map<String, List<WriteRequest>> requestItems)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public DescribeTableResult describeTable(String tableName)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public GetItemResult getItem(String tableName,
+            Map<String, AttributeValue> key) throws AmazonServiceException,
+            AmazonClientException {
+        return getItem(new GetItemRequest()
+                .withTableName(tableName)
+                .withKey(key));
+    }
+
+    @Override
+    public GetItemResult getItem(String tableName,
+            Map<String, AttributeValue> key, Boolean consistentRead)
+            throws AmazonServiceException, AmazonClientException {
+        return getItem(new GetItemRequest()
+                .withTableName(tableName)
+                .withKey(key)
+                .withConsistentRead(consistentRead));
+    }
+
+    @Override
+    public DeleteItemResult deleteItem(String tableName,
+            Map<String, AttributeValue> key) throws AmazonServiceException,
+            AmazonClientException {
+        return deleteItem(new DeleteItemRequest()
+                .withTableName(tableName)
+                .withKey(key));
+    }
+
+    @Override
+    public DeleteItemResult deleteItem(String tableName,
+            Map<String, AttributeValue> key, String returnValues)
+            throws AmazonServiceException, AmazonClientException {
+        return deleteItem(new DeleteItemRequest()
+                .withTableName(tableName)
+                .withKey(key)
+                .withReturnValues(returnValues));
+    }
+
+    @Override
+    public CreateTableResult createTable(
+            List<AttributeDefinition> attributeDefinitions, String tableName,
+            List<KeySchemaElement> keySchema,
+            ProvisionedThroughput provisionedThroughput)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public PutItemResult putItem(String tableName,
+            Map<String, AttributeValue> item) throws AmazonServiceException,
+            AmazonClientException {
+        return putItem(new PutItemRequest()
+                .withTableName(tableName)
+                .withItem(item));
+    }
+
+    @Override
+    public PutItemResult putItem(String tableName,
+            Map<String, AttributeValue> item, String returnValues)
+            throws AmazonServiceException, AmazonClientException {
+        return putItem(new PutItemRequest()
+                .withTableName(tableName)
+                .withItem(item)
+                .withReturnValues(returnValues));
+    }
+
+    @Override
+    public ListTablesResult listTables(String exclusiveStartTableName)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ListTablesResult listTables(String exclusiveStartTableName,
+            Integer limit) throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ListTablesResult listTables(Integer limit)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public UpdateItemResult updateItem(String tableName,
+            Map<String, AttributeValue> key,
+            Map<String, AttributeValueUpdate> attributeUpdates)
+            throws AmazonServiceException, AmazonClientException {
+        return updateItem(new UpdateItemRequest()
+                .withTableName(tableName)
+                .withKey(key)
+                .withAttributeUpdates(attributeUpdates));
+    }
+
+    @Override
+    public UpdateItemResult updateItem(String tableName,
+            Map<String, AttributeValue> key,
+            Map<String, AttributeValueUpdate> attributeUpdates,
+            String returnValues) throws AmazonServiceException,
+            AmazonClientException {
+        return updateItem(new UpdateItemRequest()
+                .withTableName(tableName)
+                .withKey(key)
+                .withAttributeUpdates(attributeUpdates)
+                .withReturnValues(returnValues));
+    }
+
+    @Override
+    public BatchGetItemResult batchGetItem(
+            Map<String, KeysAndAttributes> requestItems,
+            String returnConsumedCapacity) throws AmazonServiceException,
+            AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public BatchGetItemResult batchGetItem(
+            Map<String, KeysAndAttributes> requestItems)
             throws AmazonServiceException, AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
     }

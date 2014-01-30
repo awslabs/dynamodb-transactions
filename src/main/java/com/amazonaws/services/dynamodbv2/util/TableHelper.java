@@ -191,7 +191,7 @@ public class TableHelper {
             try {
                 DescribeTableResult describe = client.describeTable(new DescribeTableRequest().withTableName(tableName));
                 String status = describe.getTable().getTableStatus();
-                if(TableStatus.DELETING.toString().equals(status)) {
+                if(! TableStatus.DELETING.toString().equals(status)) {
                     throw new ResourceInUseException("Table " + tableName + " is " + status + ", and waiting for it to not exist is only useful if it is DELETING.");
                 }
             } catch (ResourceNotFoundException e) {

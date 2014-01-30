@@ -109,6 +109,7 @@ public class TransactionsIntegrationTest {
     }
     
     protected Map<String, AttributeValue> newKey(String tableName) {
+        
         Map<String, AttributeValue> key = new HashMap<String, AttributeValue>();
         key.put("Id", new AttributeValue().withS("val_" + Math.random()));
         if(getHashTableName().equals(tableName)) {
@@ -123,6 +124,7 @@ public class TransactionsIntegrationTest {
     
     @BeforeClass
     public static void createTables() throws InterruptedException {
+        
         try {
             CreateTableRequest createHash = new CreateTableRequest()
                 .withTableName(getHashTableName())
@@ -479,6 +481,55 @@ public class TransactionsIntegrationTest {
         assertEquals(item1, getResult2);
         
         assertItemNotLocked(getHashTableName(), key1, item1, true);
+    }
+    
+    @Test
+    public void getThenUpdateNewItem() {
+        Transaction t1 = manager.newTransaction();
+        Map<String, AttributeValue> key1 = newKey(getHashTableName());
+        
+        Map<String, AttributeValue> item1 = new HashMap<String, AttributeValue>(key1);
+        item1.put("asdf", new AttributeValue("didn't exist"));
+        
+        Map<String, AttributeValueUpdate> updates1 = new HashMap<String, AttributeValueUpdate>();
+        updates1.put("asdf", new AttributeValueUpdate(new AttributeValue("didn't exist"), AttributeAction.PUT));
+        
+        Map<String, AttributeValue> getResult = t1.getItem(new GetItemRequest().withTableName(getHashTableName()).withKey(key1)).getItem();
+        assertItemLocked(getHashTableName(), key1, t1.getId(), true, false);
+        assertNull(getResult);
+        
+        Map<String, AttributeValue> updateResult = t1.updateItem(new UpdateItemRequest().withTableName(getHashTableName()).withKey(key1)
+                .withAttributeUpdates(updates1).withReturnValues(ReturnValue.ALL_NEW)).getAttributes();
+        assertItemLocked(getHashTableName(), key1, item1, t1.getId(), true, true);
+        assertEquals(item1, updateResult);
+        
+        t1.commit();
+        
+        assertItemNotLocked(getHashTableName(), key1, item1, true);
+    }
+    
+    @Test
+    public void getThenUpdateExistingItem() {
+        Transaction t1 = manager.newTransaction();
+        
+        Map<String, AttributeValue> item0a = new HashMap<String, AttributeValue>(item0);
+        item0a.put("wef", new AttributeValue("new attr"));
+        
+        Map<String, AttributeValueUpdate> updates1 = new HashMap<String, AttributeValueUpdate>();
+        updates1.put("wef", new AttributeValueUpdate(new AttributeValue("new attr"), AttributeAction.PUT));
+        
+        Map<String, AttributeValue> getResult = t1.getItem(new GetItemRequest().withTableName(getHashTableName()).withKey(key0)).getItem();
+        assertItemLocked(getHashTableName(), key0, item0, t1.getId(), false, false);
+        assertEquals(item0, getResult);
+        
+        Map<String, AttributeValue> updateResult = t1.updateItem(new UpdateItemRequest().withTableName(getHashTableName()).withKey(key0)
+                .withAttributeUpdates(updates1).withReturnValues(ReturnValue.ALL_NEW)).getAttributes();
+        assertItemLocked(getHashTableName(), key0, item0a, t1.getId(), false, true);
+        assertEquals(item0a, updateResult);
+        
+        t1.commit();
+        
+        assertItemNotLocked(getHashTableName(), key0, item0a, true);
     }
     
     @Test
