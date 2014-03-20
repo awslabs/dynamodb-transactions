@@ -27,6 +27,9 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.Callable;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
@@ -96,6 +99,7 @@ import com.amazonaws.services.dynamodbv2.transactions.exceptions.UnknownComplete
  * </li> 
  */
 public class Transaction {
+    private static final Log LOG = LogFactory.getLog(Transaction.class);
 
     private static final int ITEM_LOCK_ACQUIRE_ATTEMPTS = 3;
     private static final int ITEM_COMMIT_ATTEMPTS = 2;
@@ -317,6 +321,7 @@ public class Transaction {
             // If the item is transient, make the result contain a null item.
             if(isTransient(item)) {
                 getResult.setItem(null);
+                return getResult;
             }
             
             // If the item isn't applied, it doesn't matter if it's locked
@@ -334,16 +339,32 @@ public class Transaction {
             try {
                 Transaction lockingTx = new Transaction(lockingTxId, txManager, false);
                 
-                // 3. Try to get the old item image
+                // 3. See if locking transaction has committed, if so return the item. This is valid because you cannot write to an item multiple times in the same transaction. Otherwise it would expose intermediate state.
+                if(State.COMMITTED.equals(lockingTx.getTxItem().getState())) {
+                    return getResult;
+                }
+                
+                // 4. Try to get the old item image
                 Request lockingRequest = lockingTx.getTxItem().getRequestForKey(request.getTableName(), request.getKey());
                 txAssert(lockingRequest != null, null, "Expected transaction to be locking request, but no request found for tx", lockingTx.getId(), "table", request.getTableName(), "key ", request.getKey());
                 
                 Map<String, AttributeValue> oldItem = lockingTx.getTxItem().loadItemImage(lockingRequest.getRid());
                 
-                // 4. Return the old item image if it was defined.
+                if (oldItem == null) {
+                    LOG.debug("Item image " + lockingRequest.getRid() + " missing for transaction " + lockingTx.getId());
+                    // switch the request to consistent read next time around, since we appear to have read while locking tx was cleaning up
+                    request.setConsistentRead(true);
+
+                    throw new UnknownCompletedTransactionException(lockingTx.getId(),
+                            "Transaction must have completed since the old copy of the image is missing");
+                }
+
+                // 5. Return the old item image if it was defined.
                 
                 // TODO honor AttributesToGet and return consumed capacity units from the original request 
                 return new GetItemResult().withItem(oldItem);
+            } catch (UnknownCompletedTransactionException e) {
+                // retry the request since we read a stale item
             } catch (TransactionNotFoundException e) {
                 // switch the request to consistent read next time around, possibly read a stale item that is no longer locked
                 request.setConsistentRead(true);
@@ -704,14 +725,16 @@ public class Transaction {
         // Defensively re-check the state to ensure it is COMMITTED
         txAssert(txItem != null && State.COMMITTED.equals(txItem.getState()), txId, "doCommit() requires a non-null txItem with a state of " + State.COMMITTED, "state", txItem.getState(), "txItem", txItem);
         
+        // Note: Order is functionally unimportant, but we unlock all items first to try to reduce the need 
+        // for other readers to read this transaction's information since it has already committed.
         for(Request request : txItem.getRequests()) {
-            // Note that the order is unimportant of these steps
-            
-            // 1. Delete the old item image (we don't need it anymore)
-            txItem.deleteItemImage(request.getRid());
-            
-            // 2. Unlock the item, deleting it if it was inserted only to lock the item, or if it was a delete request
+            //Unlock the item, deleting it if it was inserted only to lock the item, or if it was a delete request
             unlockItemAfterCommit(request);
+        }
+            
+        // Clean up the old item images
+        for(Request request : txItem.getRequests()) {
+            txItem.deleteItemImage(request.getRid());
         }
         
         complete(State.COMMITTED);

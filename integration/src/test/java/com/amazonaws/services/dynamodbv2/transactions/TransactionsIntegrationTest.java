@@ -23,8 +23,10 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
@@ -35,7 +37,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -79,7 +80,7 @@ import com.amazonaws.auth.PropertiesCredentials;
 
 public class TransactionsIntegrationTest {
     
-    protected static final AmazonDynamoDBClient dynamodb;
+    protected static final FailingAmazonDynamoDBClient dynamodb;
     private static final String HASH_TABLE_NAME = "TransactionsIntegrationTest_Hash";
     private static final String HASH_RANGE_TABLE_NAME = "TransactionsIntegrationTest_HashRange";
     private static final String LOCK_TABLE_NAME = "TransactionsIntegrationTest_Transactions";
@@ -150,6 +151,7 @@ public class TransactionsIntegrationTest {
     
     @Before
     public void setup() {
+        dynamodb.reset();
         Transaction t = manager.newTransaction();
         key0 = newKey(getHashTableName());
         item0 = new HashMap<String, AttributeValue>(key0);
@@ -166,6 +168,7 @@ public class TransactionsIntegrationTest {
     
     @After
     public void teardown() {
+        dynamodb.reset();
         Transaction t = manager.newTransaction();
         t.deleteItem(new DeleteItemRequest().withTableName(getHashTableName()).withKey(key0));
         t.commit();
@@ -199,7 +202,7 @@ public class TransactionsIntegrationTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        dynamodb = new AmazonDynamoDBClient(credentials);
+        dynamodb = new FailingAmazonDynamoDBClient(credentials);
         dynamodb.setEndpoint(DYNAMODB_ENDPOINT);
     }
 
@@ -651,6 +654,116 @@ public class TransactionsIntegrationTest {
         assertEquals(item1, item);
     }
     
+    @Test
+    public void getItemCommittedUpdatedAndApplied() {
+        Transaction t1 = new Transaction(UUID.randomUUID().toString(), manager, true) {
+            @Override
+            protected void doCommit() {
+                //Skip cleaning up the transaction so we can validate reading.
+            }
+        };
+
+        Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
+        updates.put("asdf", new AttributeValueUpdate().withAction(AttributeAction.PUT).withValue(new AttributeValue("asdf")));
+        Map<String, AttributeValue> item1 = new HashMap<String, AttributeValue>(item0);
+        item1.put("asdf", new AttributeValue("asdf"));
+
+        t1.updateItem(new UpdateItemRequest()
+            .withTableName(getHashTableName())
+            .withAttributeUpdates(updates)
+            .withKey(key0));
+
+        assertItemLocked(getHashTableName(), key0, item1, t1.getId(), false, true);
+
+        t1.commit();
+
+        Map<String, AttributeValue> item = manager.getItem(new GetItemRequest()
+            .withTableName(getHashTableName())
+            .withKey(key0), IsolationLevel.COMMITTED).getItem();
+        assertNoSpecialAttributes(item);
+        assertEquals(item1, item);
+        assertItemLocked(getHashTableName(), key0, item1, t1.getId(), false, true);
+    }
+    
+    @Test
+    public void getItemCommittedMissingImage() {
+        Transaction t1 = manager.newTransaction();
+        Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
+        updates.put("asdf", new AttributeValueUpdate().withAction(AttributeAction.PUT).withValue(new AttributeValue("asdf")));
+        Map<String, AttributeValue> item1 = new HashMap<String, AttributeValue>(item0);
+        item1.put("asdf", new AttributeValue("asdf"));
+
+        t1.updateItem(new UpdateItemRequest()
+            .withTableName(getHashTableName())
+            .withAttributeUpdates(updates)
+            .withKey(key0));
+
+        assertItemLocked(getHashTableName(), key0, item1, t1.getId(), false, true);
+        
+        dynamodb.getRequestsToTreatAsDeleted.add(new GetItemRequest()
+            .withTableName(manager.getItemImageTableName())
+            .addKeyEntry(AttributeName.IMAGE_ID.toString(), new AttributeValue(t1.getTxItem().txId + "#" + 1))
+            .withConsistentRead(true));
+        
+        try {
+            manager.getItem(new GetItemRequest()
+                .withTableName(getHashTableName())
+                .withKey(key0), IsolationLevel.COMMITTED).getItem();
+            fail("Should have thrown an exception.");
+        } catch (TransactionException e) {
+            assertEquals("null - Ran out of attempts to get a committed image of the item", e.getMessage());
+        }
+    }
+    
+    @Test
+    public void getItemCommittedConcurrentCommit() {
+        //Test reading an item while simulating another transaction committing concurrently.
+        //To do this we skip cleanup, make the item image appear to be deleted,
+        //and then make the reader get the uncommitted version of the transaction 
+        //row for the first read and then actual updated version for later reads.
+        
+        Transaction t1 = new Transaction(UUID.randomUUID().toString(), manager, true) {
+            @Override
+            protected void doCommit() {
+                //Skip cleaning up the transaction so we can validate reading.
+            }
+        };
+        Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
+        updates.put("asdf", new AttributeValueUpdate().withAction(AttributeAction.PUT).withValue(new AttributeValue("asdf")));
+        Map<String, AttributeValue> item1 = new HashMap<String, AttributeValue>(item0);
+        item1.put("asdf", new AttributeValue("asdf"));
+
+        t1.updateItem(new UpdateItemRequest()
+            .withTableName(getHashTableName())
+            .withAttributeUpdates(updates)
+            .withKey(key0));
+
+        assertItemLocked(getHashTableName(), key0, item1, t1.getId(), false, true);
+        
+        GetItemRequest txItemRequest = new GetItemRequest()
+            .withTableName(manager.getTransactionTableName())
+            .addKeyEntry(AttributeName.TXID.toString(), new AttributeValue(t1.getTxItem().txId))
+            .withConsistentRead(true);
+        
+        //Save the copy of the transaction before commit. 
+        GetItemResult uncommittedTransaction = dynamodb.getItem(txItemRequest);
+        
+        t1.commit();
+        assertItemLocked(getHashTableName(), key0, item1, t1.getId(), false, true);
+        
+        dynamodb.getRequestsToStub.put(txItemRequest, new LinkedList<GetItemResult>(Collections.singletonList(uncommittedTransaction)));
+        //Stub out the image so it appears deleted
+        dynamodb.getRequestsToTreatAsDeleted.add(new GetItemRequest()
+            .withTableName(manager.getItemImageTableName())
+            .addKeyEntry(AttributeName.IMAGE_ID.toString(), new AttributeValue(t1.getTxItem().txId + "#" + 1))
+            .withConsistentRead(true));
+        
+        Map<String, AttributeValue> item = manager.getItem(new GetItemRequest()
+            .withTableName(getHashTableName())
+            .withKey(key0), IsolationLevel.COMMITTED).getItem();
+        assertNoSpecialAttributes(item);
+        assertEquals(item1, item);
+    }
     
     /*
      * ReturnValues tests
@@ -1994,6 +2107,5 @@ public class TransactionsIntegrationTest {
         assertItemNotLocked(getHashTableName(), key, false);
         transaction.delete(Long.MAX_VALUE);
     }
-
 }
  

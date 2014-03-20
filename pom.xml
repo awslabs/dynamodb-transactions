@@ -6,7 +6,7 @@
     <artifactId>amazon-dynamodb-transactions</artifactId>
     <packaging>jar</packaging>
     <name>Amazon DynamoDB Transactions on the AWS SDK for Java</name>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
     <description>Amazon DynamoDB Transactions on the AWS SDK for Java provide client-side multi-item, multi-table transactions on top of Amazon DynamoDB.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
@@ -73,6 +73,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-gpg-plugin</artifactId>
+          <version>1.5</version>
           <executions>
             <execution>
               <id>sign-artifacts</id>
