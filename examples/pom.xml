@@ -27,7 +27,7 @@
         <dependency>
             <groupId>com.amazonaws.services.dynamodbv2</groupId>
             <artifactId>amazon-dynamodb-transactions</artifactId>
-            <version>1.1.0</version>
+            <version>1.1.1</version>
         </dependency>
     </dependencies>
 
