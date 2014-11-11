@@ -35,8 +35,8 @@ After each item is locked and before it is changed during the transaction, a com
 * all attributes of the item before it was modified as a part of the transaction
 * the primary key of the transaction
 * the unique id of the request within the transaction
-I
-tem images are not saved for items which are:
+
+Item images are not saved for items which are:
 
 * read lock requests
 * if the item is "transient" in the request, meaning that the item did not exist before it was locked
