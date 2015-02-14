@@ -24,6 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.amazonaws.event.ProgressListener;
+import com.amazonaws.services.cloudwatch.model.ComparisonOperator;
+import com.amazonaws.services.dynamodbv2.model.ConditionalOperator;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -78,10 +83,10 @@ public abstract class Request {
     private static final Set<String> VALID_RETURN_VALUES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("ALL_OLD", "ALL_NEW", "NONE")));
     
     private Integer rid;
-
+  
     @JsonIgnore
     protected abstract String getTableName();
-    
+
     @JsonIgnore
     protected abstract Map<String, AttributeValue> getKey(TransactionManager txManager);
 
@@ -233,7 +238,7 @@ public abstract class Request {
         
         @JsonIgnore
         private Map<String, AttributeValue> key = null;
-        
+
         private PutItemRequest request;
         
         public PutItemRequest getRequest() {
@@ -389,6 +394,7 @@ public abstract class Request {
         MAPPER.addMixInAnnotations(UpdateItemRequest.class, RequestMixIn.class);
         MAPPER.addMixInAnnotations(DeleteItemRequest.class, RequestMixIn.class);
         MAPPER.addMixInAnnotations(AttributeValueUpdate.class, AttributeValueUpdateMixIn.class);
+        MAPPER.addMixInAnnotations(ExpectedAttributeValue.class, ExpectedAttributeValueMixIn.class);
         
         // Deal with serializing of byte[].
         SimpleModule module = new SimpleModule("custom", Version.unknownVersion());
@@ -411,7 +417,6 @@ public abstract class Request {
     }
     
     
-    
     protected static Request deserialize(String txId, ByteBuffer rawRequest) {
         byte[] requestBytes = rawRequest.array();
         try {
@@ -426,7 +431,9 @@ public abstract class Request {
     }
     
     private static abstract class AmazonWebServiceRequestMixIn {
-
+        @JsonIgnore
+        public abstract void setReadLimit(int readLimit);
+      
         @JsonIgnore
         public abstract String getDelegationToken();
 
@@ -444,11 +451,33 @@ public abstract class Request {
 
         @JsonIgnore
         public abstract RequestClientOptions getRequestClientOptions();
-        
+
+        @JsonIgnore
+        public abstract void setGeneralProgressListener(ProgressListener progressListener);
+
+        @JsonIgnore
+        public abstract void setProgressListener(ProgressListener progressListener);
+
     }
-    
+  
+    private static abstract class ExpectedAttributeValueMixIn {
+      
+      @JsonIgnore
+      public abstract void setComparisonOperator(String comparisonOperator);
+      
+    }
+  
     private static abstract class RequestMixIn extends AmazonWebServiceRequestMixIn {
-        
+      
+        @JsonIgnore
+        public abstract void setReadLimit(int readLimit);
+
+        @JsonIgnore
+        public abstract int getReadLimit();
+
+        @JsonIgnore
+        public abstract void  setConditionalOperator(String comparisonOperator);
+      
         @JsonIgnore
         public abstract String getDelegationToken();
 
@@ -466,7 +495,7 @@ public abstract class Request {
 
         @JsonIgnore
         public abstract RequestClientOptions getRequestClientOptions();
-        
+      
         @JsonIgnore
         public abstract void setReturnValues(ReturnValue returnValue);
         
@@ -490,7 +519,6 @@ public abstract class Request {
         
         @JsonProperty
         public abstract boolean getConsistentRead();
-        
     }
         
     private static abstract class AttributeValueUpdateMixIn {
