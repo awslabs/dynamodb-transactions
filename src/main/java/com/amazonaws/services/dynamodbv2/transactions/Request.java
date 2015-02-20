@@ -24,11 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.amazonaws.event.ProgressListener;
-import com.amazonaws.services.cloudwatch.model.ComparisonOperator;
-import com.amazonaws.services.dynamodbv2.model.ConditionalOperator;
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -53,9 +48,12 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 
 import com.amazonaws.RequestClientOptions;
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
+import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
+import com.amazonaws.services.dynamodbv2.model.ConditionalOperator;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.ExpectedAttributeValue;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
@@ -83,10 +81,10 @@ public abstract class Request {
     private static final Set<String> VALID_RETURN_VALUES = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList("ALL_OLD", "ALL_NEW", "NONE")));
     
     private Integer rid;
-  
+
     @JsonIgnore
     protected abstract String getTableName();
-
+    
     @JsonIgnore
     protected abstract Map<String, AttributeValue> getKey(TransactionManager txManager);
 
@@ -187,6 +185,18 @@ public abstract class Request {
             if(request.getExpected() != null) {
                 throw new InvalidRequestException("Requests with conditions are not currently supported", txId, request.getTableName(), getKey(txManager), this);
             }
+            if(request.getConditionExpression() != null) {
+                throw new InvalidRequestException("Requests with conditions are not currently supported", txId, request.getTableName(), getKey(txManager), this);
+            }
+            if(request.getUpdateExpression() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, request.getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeNames() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeValues() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
         }
     }
     
@@ -230,6 +240,15 @@ public abstract class Request {
             if(request.getExpected() != null) {
                 throw new InvalidRequestException("Requests with conditions are not currently supported", txId, getTableName(), getKey(txManager), this);
             }
+            if(request.getConditionExpression() != null) {
+                throw new InvalidRequestException("Requests with conditions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeNames() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeValues() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
         }
     }
     
@@ -238,7 +257,7 @@ public abstract class Request {
         
         @JsonIgnore
         private Map<String, AttributeValue> key = null;
-
+        
         private PutItemRequest request;
         
         public PutItemRequest getRequest() {
@@ -281,6 +300,15 @@ public abstract class Request {
             }
             if(request.getExpected() != null) {
                 throw new InvalidRequestException("Requests with conditions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getConditionExpression() != null) {
+                throw new InvalidRequestException("Requests with conditions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeNames() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
+            }
+            if(request.getExpressionAttributeValues() != null) {
+                throw new InvalidRequestException("Requests with expressions are not currently supported", txId, getTableName(), getKey(txManager), this);
             }
         }
     }
@@ -417,6 +445,7 @@ public abstract class Request {
     }
     
     
+    
     protected static Request deserialize(String txId, ByteBuffer rawRequest) {
         byte[] requestBytes = rawRequest.array();
         try {
@@ -431,9 +460,7 @@ public abstract class Request {
     }
     
     private static abstract class AmazonWebServiceRequestMixIn {
-        @JsonIgnore
-        public abstract void setReadLimit(int readLimit);
-      
+
         @JsonIgnore
         public abstract String getDelegationToken();
 
@@ -451,33 +478,23 @@ public abstract class Request {
 
         @JsonIgnore
         public abstract RequestClientOptions getRequestClientOptions();
-
+        
+        @JsonIgnore
+        public abstract ProgressListener getGeneralProgressListener();
+        
         @JsonIgnore
         public abstract void setGeneralProgressListener(ProgressListener progressListener);
-
-        @JsonIgnore
-        public abstract void setProgressListener(ProgressListener progressListener);
-
-    }
-  
-    private static abstract class ExpectedAttributeValueMixIn {
-      
-      @JsonIgnore
-      public abstract void setComparisonOperator(String comparisonOperator);
-      
-    }
-  
-    private static abstract class RequestMixIn extends AmazonWebServiceRequestMixIn {
-      
-        @JsonIgnore
-        public abstract void setReadLimit(int readLimit);
-
+        
         @JsonIgnore
         public abstract int getReadLimit();
-
+        
         @JsonIgnore
-        public abstract void  setConditionalOperator(String comparisonOperator);
-      
+        public abstract Map<String, String> getCustomRequestHeaders();
+        
+    }
+    
+    private static abstract class RequestMixIn extends AmazonWebServiceRequestMixIn {
+        
         @JsonIgnore
         public abstract String getDelegationToken();
 
@@ -495,7 +512,7 @@ public abstract class Request {
 
         @JsonIgnore
         public abstract RequestClientOptions getRequestClientOptions();
-      
+        
         @JsonIgnore
         public abstract void setReturnValues(ReturnValue returnValue);
         
@@ -519,6 +536,13 @@ public abstract class Request {
         
         @JsonProperty
         public abstract boolean getConsistentRead();
+
+        @JsonIgnore
+        public abstract void setConditionalOperator(ConditionalOperator conditionalOperator);
+        
+        @JsonProperty
+        public abstract void setConditionalOperator(String conditionalOperator);
+
     }
         
     private static abstract class AttributeValueUpdateMixIn {
@@ -529,6 +553,16 @@ public abstract class Request {
         @JsonProperty
         public abstract void setAction(String attributeAction);
         
+    }
+
+    private static abstract class ExpectedAttributeValueMixIn {
+
+        @JsonIgnore
+        public abstract void setComparisonOperator(ComparisonOperator comparisonOperator);
+        
+        @JsonProperty
+        public abstract void setComparisonOperator(String comparisonOperator);
+
     }
 
     private static class ByteBufferSerializer extends JsonSerializer<ByteBuffer> {

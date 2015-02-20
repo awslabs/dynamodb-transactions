@@ -7,7 +7,7 @@
     <artifactId>amazon-dynamodb-transactions-integration</artifactId>
     <packaging>jar</packaging>
     <name>Integration tests for the Amazon DynamoDB Transactions on the AWS SDK for Java</name>
-    <version>1.1.0</version>
+    <version>1.1.2</version>
     <description>Integration tests, requiring AWS credentials</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
@@ -24,10 +24,11 @@
     </licenses>
 
     <dependencies>
+
         <dependency>
             <groupId>com.amazonaws.services.dynamodbv2</groupId>
             <artifactId>amazon-dynamodb-transactions</artifactId>
-            <version>1.1.0</version>
+            <version>1.1.2</version>
         </dependency>
         
         <!-- JUnit is needed to compile the integration test classes -->

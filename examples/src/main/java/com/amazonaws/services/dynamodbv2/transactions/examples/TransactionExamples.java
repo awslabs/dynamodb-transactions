@@ -24,6 +24,7 @@ import java.util.Map;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBHashKey;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBTable;
@@ -84,12 +85,19 @@ public class TransactionExamples {
     
     public TransactionExamples() {
         AWSCredentials credentials;
+
         try {
             credentials = new PropertiesCredentials(
                 TransactionExamples.class.getResourceAsStream("AwsCredentials.properties"));
+            if(credentials.getAWSAccessKeyId().isEmpty()) {
+                System.err.println("No credentials supplied in AwsCredentials.properties, will try with default credentials file");
+                credentials = new ProfileCredentialsProvider().getCredentials();
+            }
         } catch (IOException e) {
+            System.err.println("Could not load credentials from built-in credentials file.");
             throw new RuntimeException(e);
         }
+
         dynamodb = new AmazonDynamoDBClient(credentials);
         dynamodb.setEndpoint(DYNAMODB_ENDPOINT);
         txManager = new TransactionManager(dynamodb, TX_TABLE_NAME, TX_IMAGES_TABLE_NAME);

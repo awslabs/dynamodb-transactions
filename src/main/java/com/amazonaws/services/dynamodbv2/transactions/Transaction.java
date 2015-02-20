@@ -123,7 +123,16 @@ public class Transaction {
         }
         SPECIAL_ATTR_NAMES = Collections.unmodifiableSet(names);
     }
-    
+
+    /**
+     * default constructor to make cglib/spring able to proxy Transactions.
+     */
+    protected Transaction() {
+        this.txManager = null;
+        this.txItem = null;
+        this.txId = null;
+    }
+
     /**
      * Opens a new transaction inserts it into the database, or resumes an existing transaction.
      * 

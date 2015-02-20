@@ -1,12 +1,13 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/maven-v4_0_0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.amazonaws.services.dynamodbv2</groupId>
     <artifactId>amazon-dynamodb-transactions</artifactId>
     <packaging>jar</packaging>
     <name>Amazon DynamoDB Transactions on the AWS SDK for Java</name>
-    <version>1.1.900</version>
+    <version>1.1.2</version>
     <description>Amazon DynamoDB Transactions on the AWS SDK for Java provide client-side multi-item, multi-table transactions on top of Amazon DynamoDB.</description>
     <url>https://aws.amazon.com/dynamodb</url>
 
