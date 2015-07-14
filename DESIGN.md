@@ -35,14 +35,14 @@ After each item is locked and before it is changed during the transaction, a com
 * all attributes of the item before it was modified as a part of the transaction
 * the primary key of the transaction
 * the unique id of the request within the transaction
-Item images are not saved for items which are:
 
-* read lock requests
+Item images are not saved:
+* for items which are read lock requests
 * if the item is "transient" in the request, meaning that the item did not exist before it was locked
 
 ### No contention
 
-We start by considering the case of a transaction where none of the items are currently locked. In the next section, we'll add a dash of secret sauce to deal with contention. In this happy case, a coordinate executes a transaction by: 
+We start by considering the case of a transaction where none of the items are currently locked. In the next section, we'll add a dash of secret sauce to deal with contention. In this happy case, a coordinator executes a transaction by following these steps: 
 
 * create. Insert a new TX record, ensuring that the primary key of the TX record is unique.
 * add. Add the item to the TX record's item list and assign it a unique request id.  Also add the full update request for that item to the TX record.  Use concurrency control to ensure that the TX record is still pending, and that it has not been changed since you last read or updated the TX record.
@@ -62,7 +62,7 @@ Contention happens when a lock attempt fails because that item is already part o
 * decide. Follow the lock to the transaction's TX record. If the transaction is pending, decide it by moving it from pending to rolled-back (using optimistic concurrency control, of course).
 * complete. If the transaction was committed, then use the same code as before to complete it, removing locks, and deleting transient items and all of the old item images. If the transaction was rolled back, then use the old item images to revert them, releasing their locks, and delete the old item images.
 * clean. All locks are now clear and the contending TX record is marked as complete. The creator of the conflicting transaction can use the TX record to determine if the transaction completed or rolled back.
-A problem with this aggressive approach is that coordinators can do battle, each rolling back the other other's transactions, and no one making much forward progress. This is a liveness issue, not a safety issue: the protocol as stated is correct. There are many techniques which can decrease contention. For example, a coordinate can pause before rolling back a transaction, giving the competing coordinator a chance to finish its work. This is especially useful if each coordinator acquires locks in the same order, so that deadlock is prevented. There are lots more techniques you can dream up: dreaming is left as an exercise to the reader.
+A problem with this aggressive approach is that coordinators can do battle, each rolling back the other other's transactions, and no one making much forward progress. This is a liveness issue, not a safety issue: the protocol as stated is correct. There are many techniques which can decrease contention. For example, a coordinator can pause before rolling back a transaction, giving the competing coordinator a chance to finish its work. This is especially useful if each coordinator acquires locks in the same order, so that deadlock is prevented. There are lots more techniques you can dream up: dreaming is left as an exercise to the reader.
 A bigger problem with this approach is that uncommitted reads are visible to the rest of the application if they are not using read locks.  Read isolation is discussed later.
 
 ### Contention with other coordinators
