@@ -477,22 +477,19 @@ class TransactionItem {
 
     /**
      * Marks the transaction item as either COMMITTED or ROLLED_BACK, but only if it was in the PENDING state.
-     * If expectedVersion is passed in, it will also condition on the expected version. 
+     * It will also condition on the expected version. 
      * 
      * @param targetState
-     * @param expectedVersion an optional OCC check for the Version field
+     * @param expectedVersion 
      * @throws ConditionalCheckFailedException if the transaction doesn't exist, isn't PENDING, is finalized, 
      *         or the expected version doesn't match (if specified)  
      */
-    public void finish(final State targetState, final Integer expectedVersion) throws ConditionalCheckFailedException {
+    public void finish(final State targetState, final int expectedVersion) throws ConditionalCheckFailedException {
         txAssert(State.COMMITTED.equals(targetState) || State.ROLLED_BACK.equals(targetState),"Illegal state in finish(): " + targetState, "txItem", txItem);
-        
         Map<String, ExpectedAttributeValue> expected = new HashMap<String, ExpectedAttributeValue>(2);
         expected.put(AttributeName.STATE.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withS(STATE_PENDING)));
         expected.put(AttributeName.FINALIZED.toString(), new ExpectedAttributeValue().withExists(false));
-        if(expectedVersion != null) {
-            expected.put(AttributeName.VERSION.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withN(expectedVersion.toString())));    
-        }
+        expected.put(AttributeName.VERSION.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withN(Integer.toString(expectedVersion))));
         
         Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
         updates.put(AttributeName.STATE.toString(), new AttributeValueUpdate()
