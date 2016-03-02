@@ -27,6 +27,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
@@ -50,6 +51,7 @@ import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionExce
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionNotFoundException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionRolledBackException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.UnknownCompletedTransactionException;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -1562,6 +1564,7 @@ public class TransactionsIntegrationTest extends IntegrationTest {
     
     @Test
     public void shouldNotApplyAfterRollbackAndDeletedAndLeftLocked() throws InterruptedException {
+        
         // Very similar to "shouldNotApplyAfterRollbackAndDeleted" except the lock is broken by a new transaction, not t1
         final Semaphore barrier = new Semaphore(0);
         final Transaction t1 = new Transaction(UUID.randomUUID().toString(), manager, true) {
@@ -1627,6 +1630,121 @@ public class TransactionsIntegrationTest extends IntegrationTest {
         assertItemLocked(INTEG_HASH_TABLE_NAME, key1, item1a, t3.getId(), true, true);
         t3.commit();
         assertItemNotLocked(INTEG_HASH_TABLE_NAME, key1, item1a, true);
+    }
+    
+    @Test
+    public void rollbackAfterReadLockUpgradeAttempt() throws InterruptedException {
+        // After getting a read lock, attempt to write an update to the item. 
+        // This will succeed in apply to the item, but will fail when trying to update the transaction item.
+        // Scenario:
+        // p1                    t1        i1           t2                 p2
+        // ---- insert ---------->
+        // --add get i1  -------->
+        // --read lock+transient----------->
+        //                                               <---------insert---
+        //                                               <-----add get i1---
+        //                                 <--------------------read i1 ----  (conflict detected)
+        //                       <------------------------------read t1 ----  (going to roll it back)
+        // -- add update i1 ----->
+        // ---update i1  ------------------>
+        //                       <------------------------------rollback t1-
+        //
+        //      Everything so far is fine, but this sets the stage for where the bug was
+        //
+        //                                X <-------------release read lock-
+        //      This is where the bug used to be. p2 assumed t1 had a read lock
+        //      on i1 and tried to do an optimized unlock, resulting in i1
+        //      being stuck with a lock until manual lock busting.
+        //      The correct behavior is for p2 not to assume that t1 has a read
+        //      lock and always follow the right rollback procedures.
+        
+        final AtomicBoolean shouldThrowAfterApply = new AtomicBoolean(false);
+        
+        final Transaction t1 = new Transaction(UUID.randomUUID().toString(), manager, true) {
+            @Override
+            protected Map<String, AttributeValue> applyAndKeepLock(Request request,
+                Map<String, AttributeValue> lockedItem) {
+                Map<String, AttributeValue> toReturn = super.applyAndKeepLock(request, lockedItem);
+                if (shouldThrowAfterApply.get()) {
+                    throw new RuntimeException("throwing as desired");
+                }
+                return toReturn;
+            }    
+        };
+        
+        final Map<String, AttributeValue> key1 = newKey(INTEG_HASH_TABLE_NAME);
+        final Map<String, AttributeValue> key2 = newKey(INTEG_HASH_TABLE_NAME);
+        
+        // Read an item that doesn't exist to get its read lock
+        Map<String, AttributeValue> item1Returned = t1.getItem(new GetItemRequest(INTEG_HASH_TABLE_NAME, key1, true)).getItem();
+        assertNull(item1Returned);
+        assertItemLocked(INTEG_HASH_TABLE_NAME, key1, t1.getId(), true, false);
+        
+        // Now start another transaction that is going to try to read that same item,
+        // but stop after you read the competing transaction record (don't try to roll it back yet)
+        
+        // t2 waits on this for the main thread to signal it.
+        final Semaphore waitAfterResumeTransaction = new Semaphore(0);
+        
+        // the main thread waits on this for t2 to signal that it's ready
+        final Semaphore resumedTransaction = new Semaphore(0);
+        
+        // the main thread waits on this for t2 to finish with its rollback of t1
+        final Semaphore rolledBackT1 = new Semaphore(0);
+        
+        final TransactionManager manager = new TransactionManager(dynamodb, INTEG_LOCK_TABLE_NAME, INTEG_IMAGES_TABLE_NAME) {
+            @Override
+            public Transaction resumeTransaction(String txId) {
+                Transaction t = super.resumeTransaction(txId);
+                
+                // Signal to the main thread that t2 has loaded the tx record.
+                resumedTransaction.release();
+                
+                try {
+                    // Wait for the main thread to upgrade key1 to a write lock (but we won't know about it)
+                    waitAfterResumeTransaction.acquire();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                return t;
+            }
+            
+        };
+        
+        Thread thread = new Thread(new Runnable() {
+           @Override
+            public void run() {
+                final Transaction t2 = new Transaction(UUID.randomUUID().toString(), manager, true) {
+                };
+                // This will stop pause on waitAfterResumeTransaction once it finds that key1 is already locked by t1. 
+                Map<String, AttributeValue> item1Returned = t2.getItem(new GetItemRequest(INTEG_HASH_TABLE_NAME, key1, true)).getItem();
+                assertNull(item1Returned);
+                rolledBackT1.release();
+            } 
+        });
+        thread.start();
+        
+        // Wait for t2 to get to the point where it loaded the t1 tx record.
+        resumedTransaction.acquire();
+        
+        // Now change that getItem to an updateItem in t1
+        Map<String, AttributeValueUpdate> updates = new HashMap<String, AttributeValueUpdate>();
+        updates.put("asdf", new AttributeValueUpdate(new AttributeValue("wef"), AttributeAction.PUT));
+        t1.updateItem(new UpdateItemRequest(INTEG_HASH_TABLE_NAME, key1, updates));
+        
+        // Now let t2 continue on and roll back t1
+        waitAfterResumeTransaction.release();
+        
+        // Wait for t2 to finish rolling back t1
+        rolledBackT1.acquire();
+        
+        // T1 should be rolled back now and unable to do stuff
+        try {
+            t1.getItem(new GetItemRequest(INTEG_HASH_TABLE_NAME, key2, true)).getItem();
+            fail();
+        } catch (TransactionRolledBackException e) {
+            // expected
+        }
     }
 
     // TODO same as shouldNotLockAndApplyAfterRollbackAndDeleted except make t3 do the unlock, not t1.

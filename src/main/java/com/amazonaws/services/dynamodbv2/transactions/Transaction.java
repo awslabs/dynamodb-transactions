@@ -657,13 +657,15 @@ public class Transaction {
      */
     public synchronized void rollback() throws TransactionCompletedException, UnknownCompletedTransactionException {
         State state = null;
+        boolean alreadyRereadTxItem = false;
         try {
-            txItem.finish(State.ROLLED_BACK, null);  
+            txItem.finish(State.ROLLED_BACK, txItem.getVersion());  
             state = State.ROLLED_BACK;
         } catch (ConditionalCheckFailedException e) {         
             try {
                 // Re-read state to see its actual state, since it wasn't in PENDING
-                txItem = new TransactionItem(txId, txManager, false); // TODO synchronization
+                txItem = new TransactionItem(txId, txManager, false);
+                alreadyRereadTxItem = true;
                 state = txItem.getState();
             } catch (TransactionNotFoundException tnfe) {
                 throw new UnknownCompletedTransactionException(txId, "In transaction " + State.ROLLED_BACK + " attempt, transaction either rolled back or committed");
@@ -679,6 +681,14 @@ public class Transaction {
             if(! txItem.isCompleted()) {
                 doRollback();
             }
+            return;
+        } else if (State.PENDING.equals(state)) {
+            if (! alreadyRereadTxItem) {
+                // The item was modified in the meantime (another request was added to it)
+                // so make sure we re-read it, and then try the rollback again
+                txItem = new TransactionItem(txId, txManager, false);
+            }
+            rollback();
             return;
         }
         throw new TransactionAssertionException(txId, "Unexpected state in rollback(): " + state);
@@ -954,6 +964,7 @@ public class Transaction {
         } catch (ConditionalCheckFailedException e) {
             try {
                 expected.put(AttributeName.TRANSIENT.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withS(BOOLEAN_TRUE_ATTR_VAL)));
+                
                 DeleteItemRequest delete = new DeleteItemRequest()
                     .withTableName(tableName)
                     .withKey(key)
