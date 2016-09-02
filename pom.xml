@@ -24,7 +24,7 @@
     </licenses>
 
     <properties>
-        <aws-java-sdk.version>1.9.16</aws-java-sdk.version>
+        <aws-java-sdk.version>1.11.31</aws-java-sdk.version>
     </properties>
 
     <dependencies>

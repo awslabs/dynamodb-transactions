@@ -37,6 +37,8 @@ import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableResult;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsRequest;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsResult;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableResult;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
@@ -58,6 +60,7 @@ import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableResult;
 import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 import com.amazonaws.services.dynamodbv2.transactions.Transaction.IsolationLevel;
+import com.amazonaws.services.dynamodbv2.waiters.AmazonDynamoDBWaiters;
 
 /**
  * Facade to support the DynamoDBMapper doing a read using a specific isolation
@@ -328,5 +331,15 @@ public class TransactionManagerDynamoDBFacade implements AmazonDynamoDB {
             throws AmazonServiceException, AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
     }
+
+	@Override
+	public DescribeLimitsResult describeLimits(DescribeLimitsRequest arg0) {
+		throw new UnsupportedOperationException("Use the underlying client instance instead");
+	}
+
+	@Override
+	public AmazonDynamoDBWaiters waiters() {
+		throw new UnsupportedOperationException("Use the underlying client instance instead");
+	}
 
 }
