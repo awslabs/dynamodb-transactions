@@ -37,6 +37,8 @@ import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableResult;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsRequest;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsResult;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableResult;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
@@ -57,6 +59,7 @@ import com.amazonaws.services.dynamodbv2.model.UpdateItemResult;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableResult;
 import com.amazonaws.services.dynamodbv2.model.WriteRequest;
+import com.amazonaws.services.dynamodbv2.waiters.AmazonDynamoDBWaiters;
 
 /**
  * Necessary to work around a limitation of the mapper. The mapper always gets
@@ -279,5 +282,15 @@ public class ThreadLocalDynamoDBFacade implements AmazonDynamoDB {
     public BatchGetItemResult batchGetItem(Map<String, KeysAndAttributes> requestItems) throws AmazonServiceException, AmazonClientException {
         return getBackend().batchGetItem(requestItems);
     }
+
+	@Override
+	public DescribeLimitsResult describeLimits(DescribeLimitsRequest request) {
+		return getBackend().describeLimits(request);
+	}
+
+	@Override
+	public AmazonDynamoDBWaiters waiters() {
+		return getBackend().waiters();
+	}
 
 }
