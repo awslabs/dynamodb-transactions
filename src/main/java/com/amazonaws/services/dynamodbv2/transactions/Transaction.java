@@ -14,26 +14,12 @@
  */
 package com.amazonaws.services.dynamodbv2.transactions;
 
-import static com.amazonaws.services.dynamodbv2.transactions.TransactionItem.State;
-import static com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionAssertionException.txAssert;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.Callable;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
 import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.model.ExpectedAttributeValue;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
@@ -42,8 +28,6 @@ import com.amazonaws.services.dynamodbv2.model.PutItemResult;
 import com.amazonaws.services.dynamodbv2.model.ReturnValue;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemResult;
-import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
-import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.transactions.Request.DeleteItem;
 import com.amazonaws.services.dynamodbv2.transactions.Request.GetItem;
 import com.amazonaws.services.dynamodbv2.transactions.Request.PutItem;
@@ -57,6 +41,20 @@ import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionExce
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionNotFoundException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionRolledBackException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.UnknownCompletedTransactionException;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Callable;
+
+import static com.amazonaws.services.dynamodbv2.transactions.TransactionItem.State;
+import static com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionAssertionException.txAssert;
 
 /**
  * A transaction that can span multiple items or tables in DynamoDB.  Thread-safe.  
@@ -249,141 +247,7 @@ public class Transaction {
         GetItemResult result = new GetItemResult().withItem(item);
         return result;
     }
-    
-    protected static GetItemResult getItem(GetItemRequest request, IsolationLevel isolationLevel, TransactionManager txManager) {
-        if(isolationLevel == null) {
-            throw new IllegalArgumentException("isolation level is required");
-        }
-        if(request == null) {
-            throw new IllegalArgumentException("request is required");
-        }
-        
-        // Add our own special attributes to AttributesToGet if specified in the input
-        List<String> attributesToGet = request.getAttributesToGet();
-        if(attributesToGet != null) {
-            attributesToGet.addAll(SPECIAL_ATTR_NAMES); 
-        }
-        GetItemResult result = null;
-        switch (isolationLevel) {
-            case UNCOMMITTED:
-                result = getItemUncommitted(request, txManager);
-                break;
-            case COMMITTED:
-                result = getItemCommitted(request, txManager);
-                break;
-            case READ_LOCK:
-                throw new IllegalArgumentException("Cannot call getItem at the READ_LOCK isolation level outside of a transaction. Call getItem on a transaction directly instead.");
-            default:
-                throw new IllegalArgumentException("Unrecognized isolation level: " + isolationLevel); 
-        }
-        
-        stripSpecialAttributes(result.getItem());
-        return result;
-    }
-    
-    /**
-     * Reads the item from its table, and returns whatever is there.  The returned item may contain changes that will later be rolled back.
-     * Unless an eventually consistent read is issued, this will never return an "old" copy of the item after a transaction has committed.
-     * If the item was inserted only for acquiring a lock (and the item will be gone after the transaction), the returned item will be null. 
-     * 
-     * @param request must have AttributesToGet either null or asking for all of the transaction attributes
-     * @return the GetItemResult
-     */
-    protected static GetItemResult getItemUncommitted(GetItemRequest request, TransactionManager txManager) {
-        
-        // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
-        GetItemResult getResult = txManager.getClient().getItem(request);
-        Map<String, AttributeValue> item = getResult.getItem();
-        // If the item doesn't exist, it's not locked
-        if(item == null) {
-            return getResult;
-        }
-        
-        // If the item is transient, make the result contain a null item.
-        // But if the change is applied, return it even if it was a transient item (delete and lock do not apply)
-        if(isTransient(item) && ! isApplied(item)) {
-            getResult.setItem(null);
-            return getResult;
-        }
-        
-        return getResult;
-    }
-    
-    /**
-     * First tries to get the item from the normal table, and if that item is locked, get the old item image that is saved away.
-     * 
-     * @param request must have AttributesToGet either null or asking for all of the transaction attributes
-     * @return the GetItemResult
-     */
-    protected static GetItemResult getItemCommitted(GetItemRequest request, TransactionManager txManager) {
-        int attempts = 3;
-        for(int i = 0; i < attempts; i++) {
-            
-            // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
-            GetItemResult getResult = txManager.getClient().getItem(request);
-            Map<String, AttributeValue> item = getResult.getItem();
-            // If the item doesn't exist, it's not locked
-            if(item == null) {
-                return getResult;
-            }
-            
-            // If the item is transient, make the result contain a null item.
-            if(isTransient(item)) {
-                getResult.setItem(null);
-                return getResult;
-            }
-            
-            // If the item isn't applied, it doesn't matter if it's locked
-            if(! isApplied(item)) {
-                return getResult;
-            }
-            
-            // If the item isn't locked, return the result
-            String lockingTxId = getOwner(item);
-            if(lockingTxId == null) {
-                return getResult;
-            }
-            
-            // 2. Load the locking transaction, get the rid locking this item
-            try {
-                Transaction lockingTx = new Transaction(lockingTxId, txManager, false);
-                
-                // 3. See if locking transaction has committed, if so return the item. This is valid because you cannot write to an item multiple times in the same transaction. Otherwise it would expose intermediate state.
-                if(State.COMMITTED.equals(lockingTx.getTxItem().getState())) {
-                    return getResult;
-                }
-                
-                // 4. Try to get the old item image
-                Request lockingRequest = lockingTx.getTxItem().getRequestForKey(request.getTableName(), request.getKey());
-                txAssert(lockingRequest != null, null, "Expected transaction to be locking request, but no request found for tx", lockingTx.getId(), "table", request.getTableName(), "key ", request.getKey());
-                
-                Map<String, AttributeValue> oldItem = lockingTx.getTxItem().loadItemImage(lockingRequest.getRid());
-                
-                if (oldItem == null) {
-                    LOG.debug("Item image " + lockingRequest.getRid() + " missing for transaction " + lockingTx.getId());
-                    // switch the request to consistent read next time around, since we appear to have read while locking tx was cleaning up
-                    request.setConsistentRead(true);
 
-                    throw new UnknownCompletedTransactionException(lockingTx.getId(),
-                            "Transaction must have completed since the old copy of the image is missing");
-                }
-
-                // 5. Return the old item image if it was defined.
-                
-                // TODO honor AttributesToGet and return consumed capacity units from the original request 
-                return new GetItemResult().withItem(oldItem);
-            } catch (UnknownCompletedTransactionException e) {
-                // retry the request since we read a stale item
-            } catch (TransactionNotFoundException e) {
-                // switch the request to consistent read next time around, possibly read a stale item that is no longer locked
-                request.setConsistentRead(true);
-            }
-
-            // 5. Try again, it means that we weren't able to read the old item image (race with the old transaction completing perhaps)
-        }
-        throw new TransactionException(null, "Ran out of attempts to get a committed image of the item");
-    }
-    
     public static void stripSpecialAttributes(Map<String, AttributeValue> item) {
         if(item == null) {
             return;

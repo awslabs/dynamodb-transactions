@@ -14,14 +14,8 @@
  */
 package com.amazonaws.services.dynamodbv2.transactions;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import com.amazonaws.auth.AWSCredentials;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
@@ -50,12 +44,20 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 @Ignore
 public class IntegrationTest {
-
+    
     protected static final FailingAmazonDynamoDBClient dynamodb;
     protected static final DynamoDB documentDynamoDB;
     private static final String DYNAMODB_ENDPOINT = "http://dynamodb.us-west-2.amazonaws.com";
+    private static final String DYNAMODB_ENDPOINT_PROPERTY = "dynamodb-local.endpoint";
 
     protected static final String ID_ATTRIBUTE = "Id";
     protected static final String HASH_TABLE_NAME = "TransactionsIntegrationTest_Hash";
@@ -81,20 +83,26 @@ public class IntegrationTest {
 
     static {
         AWSCredentials credentials;
-        try {
-            credentials = new PropertiesCredentials(
-                TransactionsIntegrationTest.class.getResourceAsStream("AwsCredentials.properties"));
-            if(credentials.getAWSAccessKeyId().isEmpty()) {
-                System.err.println("No credentials supplied in AwsCredentials.properties, will try with default credentials file");
-                credentials = new ProfileCredentialsProvider().getCredentials();
+        String endpoint = System.getProperty(DYNAMODB_ENDPOINT_PROPERTY);
+        if (endpoint != null) {
+            credentials = new BasicAWSCredentials("local", "local");
+        } else {
+            endpoint = DYNAMODB_ENDPOINT;
+            try {
+                credentials = new PropertiesCredentials(
+                    TransactionsIntegrationTest.class.getResourceAsStream("AwsCredentials.properties"));
+                if(credentials.getAWSAccessKeyId().isEmpty()) {
+                    System.err.println("No credentials supplied in AwsCredentials.properties, will try with default credentials file");
+                    credentials = new ProfileCredentialsProvider().getCredentials();
+                }
+            } catch (IOException e) {
+                System.err.println("Could not load credentials from built-in credentials file.");
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            System.err.println("Could not load credentials from built-in credentials file.");
-            throw new RuntimeException(e);
         }
 
         dynamodb = new FailingAmazonDynamoDBClient(credentials);
-        dynamodb.setEndpoint(DYNAMODB_ENDPOINT);
+        dynamodb.setEndpoint(endpoint);
 
         documentDynamoDB = new DynamoDB(dynamodb);
     }
@@ -279,4 +287,5 @@ public class IntegrationTest {
             .withConsistentRead(true));
         return result.getItem();
     }
+
 }
