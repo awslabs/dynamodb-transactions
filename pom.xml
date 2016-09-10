@@ -62,6 +62,17 @@
         </developer>
     </developers>
 
+    <distributionManagement>
+        <repository>
+            <id>nexus</id>
+            <url>http://nexus.aquiris.com.br:8081/repository/maven-releases</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus</id>
+            <url>http://nexus.aquiris.com.br:8081/repository/maven-snapshots</url>
+        </snapshotRepository>
+    </distributionManagement>
+
     <build>
       <pluginManagement>
         <plugins>
@@ -73,6 +84,13 @@
               <target>1.6</target>
               <encoding>UTF-8</encoding>
             </configuration>
+          </plugin>
+          <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-deploy-plugin</artifactId>
+              <configuration>
+                  <skip>false</skip>
+              </configuration>
           </plugin>
         </plugins>
       </pluginManagement>

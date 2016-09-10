@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: com.amazonaws:aws-java-sdk-iot:1.11.31">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-iot/1.11.31/aws-java-sdk-iot-1.11.31.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-iot/1.11.31/aws-java-sdk-iot-1.11.31-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/com/amazonaws/aws-java-sdk-iot/1.11.31/aws-java-sdk-iot-1.11.31-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
