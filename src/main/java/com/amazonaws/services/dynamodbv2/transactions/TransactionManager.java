@@ -93,6 +93,14 @@ public class TransactionManager {
     }
 
     public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config, AttributeTransformer transformer) {
+        this(client, transactionTableName, itemImageTableName, config, transformer, null);
+    }
+
+    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapper dynamoDBMapper) {
+        this(client, transactionTableName, itemImageTableName, null, null, dynamoDBMapper);
+    }
+
+    private TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config, AttributeTransformer transformer, DynamoDBMapper dynamoDBMapper) {
         if(client == null) {
             throw new IllegalArgumentException("client must not be null");
         }
@@ -106,7 +114,7 @@ public class TransactionManager {
         this.transactionTableName = transactionTableName;
         this.itemImageTableName = itemImageTableName;
         this.facadeProxy = new ThreadLocalDynamoDBFacade();
-        this.clientMapper = new DynamoDBMapper(facadeProxy, config, transformer);
+        this.clientMapper = (dynamoDBMapper == null) ? new DynamoDBMapper(facadeProxy, config, transformer) : dynamoDBMapper;
         this.readUncommittedIsolationHandler = new ReadUncommittedIsolationHandlerImpl();
         this.readCommittedIsolationHandler = new ReadCommittedIsolationHandlerImpl(this);
     }
