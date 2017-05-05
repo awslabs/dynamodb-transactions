@@ -14,18 +14,8 @@
  */
  package com.amazonaws.services.dynamodbv2.transactions;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
+import com.amazonaws.services.dynamodbv2.datamodeling.AttributeTransformer;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapperConfig;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
@@ -43,6 +33,19 @@ import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.dynamodbv2.transactions.Transaction.AttributeName;
 import com.amazonaws.services.dynamodbv2.transactions.Transaction.IsolationLevel;
 import com.amazonaws.services.dynamodbv2.util.TableHelper;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A factory for client-side transactions on DynamoDB.  Thread-safe. 
@@ -78,12 +81,18 @@ public class TransactionManager {
     private final ConcurrentHashMap<String, List<KeySchemaElement>> tableSchemaCache = new ConcurrentHashMap<String, List<KeySchemaElement>>();
     private final DynamoDBMapper clientMapper;
     private final ThreadLocalDynamoDBFacade facadeProxy;
+    private final ReadUncommittedIsolationHandlerImpl readUncommittedIsolationHandler;
+    private final ReadCommittedIsolationHandlerImpl readCommittedIsolationHandler;
     
     public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName) {
     	this(client, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
     }
 
     public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
+        this(client, transactionTableName, itemImageTableName, config, null);
+    }
+
+    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config, AttributeTransformer transformer) {
         if(client == null) {
             throw new IllegalArgumentException("client must not be null");
         }
@@ -97,7 +106,9 @@ public class TransactionManager {
         this.transactionTableName = transactionTableName;
         this.itemImageTableName = itemImageTableName;
         this.facadeProxy = new ThreadLocalDynamoDBFacade();
-        this.clientMapper = new DynamoDBMapper(facadeProxy, config);
+        this.clientMapper = new DynamoDBMapper(facadeProxy, config, transformer);
+        this.readUncommittedIsolationHandler = new ReadUncommittedIsolationHandlerImpl();
+        this.readCommittedIsolationHandler = new ReadCommittedIsolationHandlerImpl(this);
     }
     
     protected List<KeySchemaElement> getTableSchema(String tableName) throws ResourceNotFoundException {
@@ -108,6 +119,21 @@ public class TransactionManager {
             tableSchemaCache.put(tableName, schema);
         }
         return schema;
+    }
+
+    protected Map<String, AttributeValue> createKeyMap(final String tableName, final Map<String, AttributeValue> item) {
+        if (tableName == null) {
+            throw new IllegalArgumentException("must specify a tableName");
+        }
+        if (item == null) {
+            throw new IllegalArgumentException("must specify an item");
+        }
+        List<KeySchemaElement> schema = getTableSchema(tableName);
+        Map<String, AttributeValue> key = new HashMap<String, AttributeValue>(schema.size());
+        for (KeySchemaElement element : schema) {
+            key.put(element.getAttributeName(), item.get(element.getAttributeName()));
+        }
+        return key;
     }
     
     public Transaction newTransaction() {
@@ -144,10 +170,35 @@ public class TransactionManager {
         return facadeProxy;
     }
 
-    public GetItemResult getItem(GetItemRequest request, IsolationLevel isolationLevel) {
-        return Transaction.getItem(request, isolationLevel, this);
+    protected ReadIsolationHandler getReadIsolationHandler(IsolationLevel isolationLevel) {
+        if (isolationLevel == null) {
+            throw new IllegalArgumentException("isolation level is required");
+        }
+        switch (isolationLevel) {
+            case UNCOMMITTED:
+                return readUncommittedIsolationHandler;
+            case COMMITTED:
+                return readCommittedIsolationHandler;
+            case READ_LOCK:
+                throw new IllegalArgumentException("Cannot call getItem at the READ_LOCK isolation level outside of a transaction. Call getItem on a transaction directly instead.");
+            default:
+                throw new IllegalArgumentException("Unrecognized isolation level: " + isolationLevel);
+        }
     }
-    
+
+    public GetItemResult getItem(GetItemRequest request, IsolationLevel isolationLevel) {
+        if (request.getAttributesToGet() != null) {
+            Set<String> attributesToGet = new HashSet<String>(request.getAttributesToGet());
+            attributesToGet.addAll(Transaction.SPECIAL_ATTR_NAMES);
+            request.setAttributesToGet(attributesToGet);
+        }
+        GetItemResult result = getClient().getItem(request);
+        Map<String, AttributeValue> item = getReadIsolationHandler(isolationLevel).handleItem(result.getItem(), request.getAttributesToGet(), request.getTableName());
+        Transaction.stripSpecialAttributes(item);
+        result.setItem(item);
+        return result;
+    }
+
     public String getTransactionTableName() {
         return transactionTableName;
     }
