@@ -9,7 +9,7 @@ lazy val dynamoDbTransactions =
     version := "1.1.2",
     scalaVersion := "2.11.8",
     libraryDependencies ++= Seq(
-      "com.amazonaws" % "aws-java-sdk" % "1.10.51", // 1.9.16
+      "com.amazonaws" % "aws-java-sdk" % "1.11.125",
       "junit" % "junit" % "4.11" % Test
     ),
     publishArtifact in (Compile, packageDoc) := false,
