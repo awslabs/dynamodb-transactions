@@ -86,7 +86,7 @@ As implemented, this protocol requires 7N+4 writes.  The 7N comes from: 3 for ea
 
 The protocol will scale to any transaction rate, thanks to DynamoDB's behind-the-scenes partitioning. Two unrelated transactions do not interfere with one another. The table of TX records can be indexed using a hash key, which provides nearly unlimited scaling.
 
-As defined, the protocol will not scale to transactions with a large number of update commands. That's because the TX record, which must hold all the update commands, is limited, like any DynamoDB item, to 64K. One possible fix is to use a hash plus range key for the TX table, where one of the records (say the record with range key zero) is the TX record itself, and the other records in the range represent the items and updates.
+As defined, the protocol will not scale to transactions with a large number of update commands. That's because the TX record, which must hold all the update commands, is limited, like any DynamoDB item, to 400KB. One possible fix is to use a hash plus range key for the TX table, where one of the records (say the record with range key zero) is the TX record itself, and the other records in the range represent the items and updates.
 
 ## Part Two: Isolation
 
