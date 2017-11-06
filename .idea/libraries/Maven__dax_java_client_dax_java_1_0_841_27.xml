@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Maven: dax-java-client:dax-java:1.0.841.27">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/dax-java-client/dax-java/1.0.841.27/dax-java-1.0.841.27.jar!/" />
+    </CLASSES>
+    <JAVADOC>
+      <root url="jar://$MAVEN_REPOSITORY$/dax-java-client/dax-java/1.0.841.27/dax-java-1.0.841.27-javadoc.jar!/" />
+    </JAVADOC>
+    <SOURCES>
+      <root url="jar://$MAVEN_REPOSITORY$/dax-java-client/dax-java/1.0.841.27/dax-java-1.0.841.27-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

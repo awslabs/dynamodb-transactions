@@ -382,7 +382,7 @@ public class RequestTest {
         private final List<KeySchemaElement> keySchema;
 
         public MockTransactionManager(List<KeySchemaElement> keySchema) {
-            super(new AmazonDynamoDBClient(), "Dummy", "DummyOther");
+            super(new AmazonDynamoDBClient(), null,"Dummy", "DummyOther");
             this.keySchema = keySchema;
         }
 

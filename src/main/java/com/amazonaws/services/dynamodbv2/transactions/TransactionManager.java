@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.amazon.dax.client.dynamodbv2.AmazonDaxClient;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -73,17 +74,18 @@ public class TransactionManager {
     }
         
     private final AmazonDynamoDB client;
+    private final AmazonDaxClient daxClient;
     private final String transactionTableName;
     private final String itemImageTableName;
     private final ConcurrentHashMap<String, List<KeySchemaElement>> tableSchemaCache = new ConcurrentHashMap<String, List<KeySchemaElement>>();
     private final DynamoDBMapper clientMapper;
     private final ThreadLocalDynamoDBFacade facadeProxy;
     
-    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName) {
-    	this(client, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
+    public TransactionManager(AmazonDynamoDB client, AmazonDaxClient daxClient, String transactionTableName, String itemImageTableName) {
+    	this(client, daxClient, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
     }
 
-    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
+    public TransactionManager(AmazonDynamoDB client, AmazonDaxClient daxClient, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
         if(client == null) {
             throw new IllegalArgumentException("client must not be null");
         }
@@ -94,6 +96,7 @@ public class TransactionManager {
             throw new IllegalArgumentException("itemImageTableName must not be null");
         }
         this.client = client;
+        this.daxClient= daxClient;
         this.transactionTableName = transactionTableName;
         this.itemImageTableName = itemImageTableName;
         this.facadeProxy = new ThreadLocalDynamoDBFacade();
@@ -138,6 +141,10 @@ public class TransactionManager {
 
     public DynamoDBMapper getClientMapper() {
         return clientMapper;
+    }
+
+    public AmazonDaxClient getDaxClient() {
+        return daxClient;
     }
 
     protected ThreadLocalDynamoDBFacade getFacadeProxy() {
@@ -266,6 +273,7 @@ public class TransactionManager {
     public <T> T load(T item,
             IsolationLevel isolationLevel) {
         try {
+            log.info("loading details using TranscationManager");
             getFacadeProxy().setBackend(new TransactionManagerDynamoDBFacade(this, isolationLevel));
             return getClientMapper().load(item);
         } finally {

@@ -292,7 +292,7 @@ public class Transaction {
     protected static GetItemResult getItemUncommitted(GetItemRequest request, TransactionManager txManager) {
         
         // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
-        GetItemResult getResult = txManager.getClient().getItem(request);
+        GetItemResult getResult = (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(request) : txManager.getClient().getItem(request);
         Map<String, AttributeValue> item = getResult.getItem();
         // If the item doesn't exist, it's not locked
         if(item == null) {
@@ -320,7 +320,7 @@ public class Transaction {
         for(int i = 0; i < attempts; i++) {
             
             // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
-            GetItemResult getResult = txManager.getClient().getItem(request);
+            GetItemResult getResult = (txManager.getDaxClient() != null)? txManager.getDaxClient().getItem(request) : txManager.getClient().getItem(request);
             Map<String, AttributeValue> item = getResult.getItem();
             // If the item doesn't exist, it's not locked
             if(item == null) {
@@ -787,13 +787,21 @@ public class Transaction {
                     .withKey(request.getKey(txManager))
                     .withAttributeUpdates(updates)
                     .withExpected(expected);
-                txManager.getClient().updateItem(update);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().updateItem(update);
+                } else {
+                    txManager.getClient().updateItem(update);
+                }
             } else if(request instanceof DeleteItem) {
                 DeleteItemRequest delete = new DeleteItemRequest()
                     .withTableName(request.getTableName())
                     .withKey(request.getKey(txManager))
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().deleteItem(delete);
+                } else {
+                    txManager.getClient().deleteItem(delete);
+                }
             } else if(request instanceof GetItem) {
                 releaseReadLock(request.getTableName(), request.getKey(txManager));
             } else {
@@ -887,7 +895,11 @@ public class Transaction {
                     .withTableName(tableName)
                     .withItem(itemImage)
                     .withExpected(expected);
-                txManager.getClient().putItem(put);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().putItem(put);
+                } else {
+                    txManager.getClient().putItem(put);
+                }
             } catch (ConditionalCheckFailedException e) {
                 // Only conditioning on "locked by us", so if that fails, it means it already happened (and may have advanced forward)
             }
@@ -902,7 +914,12 @@ public class Transaction {
                     .withTableName(tableName)
                     .withKey(key)
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().deleteItem(delete);
+                }else{
+                    txManager.getClient().deleteItem(delete);
+                }
+
                 return;
             } catch (ConditionalCheckFailedException e) {
                 // This means it already happened (and may have advanced forward)
@@ -960,7 +977,7 @@ public class Transaction {
                 .withAttributeUpdates(updates)
                 .withKey(key)
                 .withExpected(expected);
-            txManager.getClient().updateItem(update);
+            txManager.getDaxClient().updateItem(update);
         } catch (ConditionalCheckFailedException e) {
             try {
                 expected.put(AttributeName.TRANSIENT.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withS(BOOLEAN_TRUE_ATTR_VAL)));
@@ -969,7 +986,7 @@ public class Transaction {
                     .withTableName(tableName)
                     .withKey(key)
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);    
+                txManager.getDaxClient().deleteItem(delete);
             } catch (ConditionalCheckFailedException e1) {
                 // Ignore, means it was definitely rolled back
                 // Re-read to ensure that it wasn't applied
@@ -1017,7 +1034,7 @@ public class Transaction {
         
         // Delete the item, and ignore conditional write failures
         try {
-            txManager.getClient().updateItem(update);
+            txManager.getDaxClient().updateItem(update);
         } catch (ConditionalCheckFailedException e) { 
             // already unlocked
         }
@@ -1180,7 +1197,7 @@ public class Transaction {
         boolean nextExpectExists = false;
         Map<String, AttributeValue> item = null;
         try {
-            item = txManager.getClient().updateItem(updateRequest).getAttributes();
+            item = (txManager.getDaxClient() != null) ? txManager.getDaxClient().updateItem(updateRequest).getAttributes() : txManager.getClient().updateItem(updateRequest).getAttributes();
             owner = getOwner(item);
         } catch (ConditionalCheckFailedException e) {
             // If the check failed, it means there is either:
@@ -1263,7 +1280,7 @@ public class Transaction {
                     put.getItem().put(AttributeName.DATE.toString(), lockedItem.get(AttributeName.DATE.toString()));
                     put.setExpected(expected);
                     put.setReturnValues(returnValues);
-                    returnItem = txManager.getClient().putItem(put).getAttributes();
+                    returnItem = (txManager.getDaxClient() != null) ? txManager.getDaxClient().putItem(put).getAttributes() : txManager.getClient().putItem(put).getAttributes();
                 } else if(request instanceof UpdateItem) {
                     UpdateItemRequest update = ((UpdateItem)request).getRequest();
                     update.setExpected(expected);
@@ -1282,7 +1299,7 @@ public class Transaction {
                         .withAction(AttributeAction.PUT)
                         .withValue(new AttributeValue(BOOLEAN_TRUE_ATTR_VAL)));
                     
-                    returnItem = txManager.getClient().updateItem(update).getAttributes();
+                    returnItem = (txManager.getDaxClient() != null)? txManager.getDaxClient().updateItem(update).getAttributes() : txManager.getClient().updateItem(update).getAttributes();
                 } else if(request instanceof DeleteItem) {
                     // no-op - delete doesn't change the item until unlock post-commit
                 } else if(request instanceof GetItem) {
@@ -1370,7 +1387,7 @@ public class Transaction {
             .withTableName(tableName)
             .withConsistentRead(true)
             .withKey(key);
-        GetItemResult getResult = txManager.getClient().getItem(getRequest);
+        GetItemResult getResult = (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(getRequest) : txManager.getClient().getItem(getRequest);
         return getResult.getItem();
     }
 
