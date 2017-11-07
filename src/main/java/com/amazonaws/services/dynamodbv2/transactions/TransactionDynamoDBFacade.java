@@ -491,4 +491,14 @@ public class TransactionDynamoDBFacade implements AmazonDynamoDB {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
     }
 
+	@Override
+	public DescribeLimitsResult describeLimits(DescribeLimitsRequest request) {
+		throw new UnsupportedOperationException("Use the underlying client instance instead");
+	}
+
+	@Override
+	public AmazonDynamoDBWaiters waiters() {
+		throw new UnsupportedOperationException("Use the underlying client instance instead");
+	}
+
 }

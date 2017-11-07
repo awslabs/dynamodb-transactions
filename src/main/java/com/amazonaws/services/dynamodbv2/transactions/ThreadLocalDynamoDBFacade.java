@@ -328,4 +328,14 @@ public class ThreadLocalDynamoDBFacade implements AmazonDynamoDB {
         return getBackend().batchGetItem(requestItems);
     }
 
+	@Override
+	public DescribeLimitsResult describeLimits(DescribeLimitsRequest request) {
+		return getBackend().describeLimits(request);
+	}
+
+	@Override
+	public AmazonDynamoDBWaiters waiters() {
+		return getBackend().waiters();
+	}
+
 }

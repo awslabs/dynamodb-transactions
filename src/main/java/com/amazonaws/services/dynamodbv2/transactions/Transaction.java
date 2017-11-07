@@ -14,26 +14,12 @@
  */
 package com.amazonaws.services.dynamodbv2.transactions;
 
-import static com.amazonaws.services.dynamodbv2.transactions.TransactionItem.State;
-import static com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionAssertionException.txAssert;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.Callable;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
 import com.amazonaws.services.dynamodbv2.model.AttributeAction;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.AttributeValueUpdate;
 import com.amazonaws.services.dynamodbv2.model.ConditionalCheckFailedException;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
+import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.model.ExpectedAttributeValue;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
@@ -42,8 +28,6 @@ import com.amazonaws.services.dynamodbv2.model.PutItemResult;
 import com.amazonaws.services.dynamodbv2.model.ReturnValue;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemResult;
-import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
-import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.transactions.Request.DeleteItem;
 import com.amazonaws.services.dynamodbv2.transactions.Request.GetItem;
 import com.amazonaws.services.dynamodbv2.transactions.Request.PutItem;
@@ -57,6 +41,20 @@ import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionExce
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionNotFoundException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionRolledBackException;
 import com.amazonaws.services.dynamodbv2.transactions.exceptions.UnknownCompletedTransactionException;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Callable;
+
+import static com.amazonaws.services.dynamodbv2.transactions.TransactionItem.State;
+import static com.amazonaws.services.dynamodbv2.transactions.exceptions.TransactionAssertionException.txAssert;
 
 /**
  * A transaction that can span multiple items or tables in DynamoDB.  Thread-safe.  
@@ -378,12 +376,11 @@ public class Transaction {
                 // switch the request to consistent read next time around, possibly read a stale item that is no longer locked
                 request.setConsistentRead(true);
             }
-
-            // 5. Try again, it means that we weren't able to read the old item image (race with the old transaction completing perhaps)
+          // 5. Try again, it means that we weren't able to read the old item image (race with the old transaction completing perhaps)
         }
         throw new TransactionException(null, "Ran out of attempts to get a committed image of the item");
     }
-    
+
     public static void stripSpecialAttributes(Map<String, AttributeValue> item) {
         if(item == null) {
             return;
