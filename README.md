@@ -47,7 +47,7 @@ Once you check out the code from GitHub, you can build it using Maven.  To disab
 [sdk-forum]: http://developer.amazonwebservices.com/connect/forum.jspa?forumID=70
 [sdk-blog]: https://java.awsblog.com/
 [sdk-issues]: https://github.com/awslabs/dynamodb-transactions/issues
-[sdk-license]: http://aws.amazon.com/asl/
+[sdk-license]: http://www.apache.org/licenses/LICENSE-2.0
 [docs-api]: http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/index.html
 [docs-dynamodb-api]: http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/Welcome.html
 [docs-dynamodb]: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide
