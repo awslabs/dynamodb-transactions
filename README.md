@@ -1,12 +1,15 @@
 # Transactions for Amazon DynamoDB
 
-**Amazon DynamoDB Transactions** enables Java developers to easily perform atomic writes and isolated reads across multiple items and tables when building high scale applications on [Amazon DynamoDB][dynamodb]. You can get started in minutes using ***Maven***.
+**_[IMPORTANT]_ Since November 2018, DynamoDB offers transactional APIs, simplifying the developer experience of making coordinated, all-or-nothing changes to multiple items both within and across tables. DynamoDB Transactions provide atomicity, consistency, isolation, and durability (ACID) in DynamoDB, enabling you to maintain data correctness in your applications more easily. We strongly recommend all developers to use DynamoDB’s built-in, servers-side transactions instead of this client-side library. To learn more about DynamoDB Transactions, see https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transactions.html.**
+ 
+
+**Amazon DynamoDB Client-Side Transactions** enables Java developers to easily perform atomic writes and isolated reads across multiple items and tables when building high scale applications on [Amazon DynamoDB][dynamodb]. You can get started in minutes using ***Maven***.
 
 * [Transactions Details & Design][design]
 * [DynamoDB Forum][sdk-forum]
 * [Transactions Library Issues][sdk-issues] 
 
-The **Amazon DynamoDB Transactions** library is built on top of the low-level Amazon DynamoDB client in the AWS SDK for Java.  For support in using and installing the AWS SDK for Java, see:
+The **Amazon DynamoDB Client-Side Transactions** library is built on top of the low-level Amazon DynamoDB client in the AWS SDK for Java.  For support in using and installing the AWS SDK for Java, see:
 
 * [API Docs][docs-api]
 * [SDK Developer Guide][docs-guide]
