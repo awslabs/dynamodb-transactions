@@ -24,7 +24,8 @@
     </licenses>
 
     <properties>
-        <aws-java-sdk.version>1.11.31</aws-java-sdk.version>
+        <aws-java-sdk.version>1.11.213</aws-java-sdk.version>
+        <dax-java-client.version>1.0.841.27</dax-java-client.version>
     </properties>
 
     <dependencies>
@@ -33,6 +34,12 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk</artifactId>
             <version>${aws-java-sdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>dax-java-client</groupId>
+            <artifactId>dax-java</artifactId>
+            <version>${dax-java-client.version}</version>
         </dependency>
 
         <!-- JUnit is needed to compile the integration test classes -->

@@ -237,6 +237,139 @@ public class Transaction {
         GetItemResult result = new GetItemResult().withItem(item);
         return result;
     }
+    
+    protected static GetItemResult getItem(GetItemRequest request, IsolationLevel isolationLevel, TransactionManager txManager) {
+        if(isolationLevel == null) {
+            throw new IllegalArgumentException("isolation level is required");
+        }
+        if(request == null) {
+            throw new IllegalArgumentException("request is required");
+        }
+        
+        // Add our own special attributes to AttributesToGet if specified in the input
+        List<String> attributesToGet = request.getAttributesToGet();
+        if(attributesToGet != null) {
+            attributesToGet.addAll(SPECIAL_ATTR_NAMES); 
+        }
+        GetItemResult result = null;
+        switch (isolationLevel) {
+            case UNCOMMITTED:
+                result = getItemUncommitted(request, txManager);
+                break;
+            case COMMITTED:
+                result = getItemCommitted(request, txManager);
+                break;
+            case READ_LOCK:
+                throw new IllegalArgumentException("Cannot call getItem at the READ_LOCK isolation level outside of a transaction. Call getItem on a transaction directly instead.");
+            default:
+                throw new IllegalArgumentException("Unrecognized isolation level: " + isolationLevel); 
+        }
+        
+        stripSpecialAttributes(result.getItem());
+        return result;
+    }
+    
+    /**
+     * Reads the item from its table, and returns whatever is there.  The returned item may contain changes that will later be rolled back.
+     * Unless an eventually consistent read is issued, this will never return an "old" copy of the item after a transaction has committed.
+     * If the item was inserted only for acquiring a lock (and the item will be gone after the transaction), the returned item will be null. 
+     * 
+     * @param request must have AttributesToGet either null or asking for all of the transaction attributes
+     * @return the GetItemResult
+     */
+    protected static GetItemResult getItemUncommitted(GetItemRequest request, TransactionManager txManager) {
+        
+        // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
+        GetItemResult getResult = (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(request) : txManager.getClient().getItem(request);
+        Map<String, AttributeValue> item = getResult.getItem();
+        // If the item doesn't exist, it's not locked
+        if(item == null) {
+            return getResult;
+        }
+        
+        // If the item is transient, make the result contain a null item.
+        // But if the change is applied, return it even if it was a transient item (delete and lock do not apply)
+        if(isTransient(item) && ! isApplied(item)) {
+            getResult.setItem(null);
+            return getResult;
+        }
+        
+        return getResult;
+    }
+    
+    /**
+     * First tries to get the item from the normal table, and if that item is locked, get the old item image that is saved away.
+     * 
+     * @param request must have AttributesToGet either null or asking for all of the transaction attributes
+     * @return the GetItemResult
+     */
+    protected static GetItemResult getItemCommitted(GetItemRequest request, TransactionManager txManager) {
+        int attempts = 3;
+        for(int i = 0; i < attempts; i++) {
+            
+            // 1. Try to get the item from the table, returning it if it isn't locked (of if it is locked, if it isn't applied yet)
+            GetItemResult getResult = (txManager.getDaxClient() != null)? txManager.getDaxClient().getItem(request) : txManager.getClient().getItem(request);
+            Map<String, AttributeValue> item = getResult.getItem();
+            // If the item doesn't exist, it's not locked
+            if(item == null) {
+                return getResult;
+            }
+            
+            // If the item is transient, make the result contain a null item.
+            if(isTransient(item)) {
+                getResult.setItem(null);
+                return getResult;
+            }
+            
+            // If the item isn't applied, it doesn't matter if it's locked
+            if(! isApplied(item)) {
+                return getResult;
+            }
+            
+            // If the item isn't locked, return the result
+            String lockingTxId = getOwner(item);
+            if(lockingTxId == null) {
+                return getResult;
+            }
+            
+            // 2. Load the locking transaction, get the rid locking this item
+            try {
+                Transaction lockingTx = new Transaction(lockingTxId, txManager, false);
+                
+                // 3. See if locking transaction has committed, if so return the item. This is valid because you cannot write to an item multiple times in the same transaction. Otherwise it would expose intermediate state.
+                if(State.COMMITTED.equals(lockingTx.getTxItem().getState())) {
+                    return getResult;
+                }
+                
+                // 4. Try to get the old item image
+                Request lockingRequest = lockingTx.getTxItem().getRequestForKey(request.getTableName(), request.getKey());
+                txAssert(lockingRequest != null, null, "Expected transaction to be locking request, but no request found for tx", lockingTx.getId(), "table", request.getTableName(), "key ", request.getKey());
+                
+                Map<String, AttributeValue> oldItem = lockingTx.getTxItem().loadItemImage(lockingRequest.getRid());
+                
+                if (oldItem == null) {
+                    LOG.debug("Item image " + lockingRequest.getRid() + " missing for transaction " + lockingTx.getId());
+                    // switch the request to consistent read next time around, since we appear to have read while locking tx was cleaning up
+                    request.setConsistentRead(true);
+
+                    throw new UnknownCompletedTransactionException(lockingTx.getId(),
+                            "Transaction must have completed since the old copy of the image is missing");
+                }
+
+                // 5. Return the old item image if it was defined.
+                
+                // TODO honor AttributesToGet and return consumed capacity units from the original request 
+                return new GetItemResult().withItem(oldItem);
+            } catch (UnknownCompletedTransactionException e) {
+                // retry the request since we read a stale item
+            } catch (TransactionNotFoundException e) {
+                // switch the request to consistent read next time around, possibly read a stale item that is no longer locked
+                request.setConsistentRead(true);
+            }
+          // 5. Try again, it means that we weren't able to read the old item image (race with the old transaction completing perhaps)
+        }
+        throw new TransactionException(null, "Ran out of attempts to get a committed image of the item");
+    }
 
     public static void stripSpecialAttributes(Map<String, AttributeValue> item) {
         if(item == null) {
@@ -641,13 +774,21 @@ public class Transaction {
                     .withKey(request.getKey(txManager))
                     .withAttributeUpdates(updates)
                     .withExpected(expected);
-                txManager.getClient().updateItem(update);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().updateItem(update);
+                } else {
+                    txManager.getClient().updateItem(update);
+                }
             } else if(request instanceof DeleteItem) {
                 DeleteItemRequest delete = new DeleteItemRequest()
                     .withTableName(request.getTableName())
                     .withKey(request.getKey(txManager))
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().deleteItem(delete);
+                } else {
+                    txManager.getClient().deleteItem(delete);
+                }
             } else if(request instanceof GetItem) {
                 releaseReadLock(request.getTableName(), request.getKey(txManager));
             } else {
@@ -741,7 +882,11 @@ public class Transaction {
                     .withTableName(tableName)
                     .withItem(itemImage)
                     .withExpected(expected);
-                txManager.getClient().putItem(put);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().putItem(put);
+                } else {
+                    txManager.getClient().putItem(put);
+                }
             } catch (ConditionalCheckFailedException e) {
                 // Only conditioning on "locked by us", so if that fails, it means it already happened (and may have advanced forward)
             }
@@ -756,7 +901,12 @@ public class Transaction {
                     .withTableName(tableName)
                     .withKey(key)
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);
+                if(txManager.getDaxClient() != null) {
+                    txManager.getDaxClient().deleteItem(delete);
+                }else{
+                    txManager.getClient().deleteItem(delete);
+                }
+
                 return;
             } catch (ConditionalCheckFailedException e) {
                 // This means it already happened (and may have advanced forward)
@@ -814,7 +964,7 @@ public class Transaction {
                 .withAttributeUpdates(updates)
                 .withKey(key)
                 .withExpected(expected);
-            txManager.getClient().updateItem(update);
+            txManager.getDaxClient().updateItem(update);
         } catch (ConditionalCheckFailedException e) {
             try {
                 expected.put(AttributeName.TRANSIENT.toString(), new ExpectedAttributeValue().withValue(new AttributeValue().withS(BOOLEAN_TRUE_ATTR_VAL)));
@@ -823,7 +973,7 @@ public class Transaction {
                     .withTableName(tableName)
                     .withKey(key)
                     .withExpected(expected);
-                txManager.getClient().deleteItem(delete);    
+                txManager.getDaxClient().deleteItem(delete);
             } catch (ConditionalCheckFailedException e1) {
                 // Ignore, means it was definitely rolled back
                 // Re-read to ensure that it wasn't applied
@@ -871,7 +1021,7 @@ public class Transaction {
         
         // Delete the item, and ignore conditional write failures
         try {
-            txManager.getClient().updateItem(update);
+            txManager.getDaxClient().updateItem(update);
         } catch (ConditionalCheckFailedException e) { 
             // already unlocked
         }
@@ -1034,7 +1184,7 @@ public class Transaction {
         boolean nextExpectExists = false;
         Map<String, AttributeValue> item = null;
         try {
-            item = txManager.getClient().updateItem(updateRequest).getAttributes();
+            item = (txManager.getDaxClient() != null) ? txManager.getDaxClient().updateItem(updateRequest).getAttributes() : txManager.getClient().updateItem(updateRequest).getAttributes();
             owner = getOwner(item);
         } catch (ConditionalCheckFailedException e) {
             // If the check failed, it means there is either:
@@ -1117,7 +1267,7 @@ public class Transaction {
                     put.getItem().put(AttributeName.DATE.toString(), lockedItem.get(AttributeName.DATE.toString()));
                     put.setExpected(expected);
                     put.setReturnValues(returnValues);
-                    returnItem = txManager.getClient().putItem(put).getAttributes();
+                    returnItem = (txManager.getDaxClient() != null) ? txManager.getDaxClient().putItem(put).getAttributes() : txManager.getClient().putItem(put).getAttributes();
                 } else if(request instanceof UpdateItem) {
                     UpdateItemRequest update = ((UpdateItem)request).getRequest();
                     update.setExpected(expected);
@@ -1136,7 +1286,7 @@ public class Transaction {
                         .withAction(AttributeAction.PUT)
                         .withValue(new AttributeValue(BOOLEAN_TRUE_ATTR_VAL)));
                     
-                    returnItem = txManager.getClient().updateItem(update).getAttributes();
+                    returnItem = (txManager.getDaxClient() != null)? txManager.getDaxClient().updateItem(update).getAttributes() : txManager.getClient().updateItem(update).getAttributes();
                 } else if(request instanceof DeleteItem) {
                     // no-op - delete doesn't change the item until unlock post-commit
                 } else if(request instanceof GetItem) {
@@ -1224,7 +1374,7 @@ public class Transaction {
             .withTableName(tableName)
             .withConsistentRead(true)
             .withKey(key);
-        GetItemResult getResult = txManager.getClient().getItem(getRequest);
+        GetItemResult getResult = (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(getRequest) : txManager.getClient().getItem(getRequest);
         return getResult.getItem();
     }
 

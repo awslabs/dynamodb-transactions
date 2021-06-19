@@ -4,6 +4,18 @@
  */
  package com.amazonaws.services.dynamodbv2.transactions;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+import com.amazon.dax.client.dynamodbv2.AmazonDaxClient;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.datamodeling.AttributeTransformer;
 import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBMapper;
@@ -66,6 +78,7 @@ public class TransactionManager {
     }
         
     private final AmazonDynamoDB client;
+    private final AmazonDaxClient daxClient;
     private final String transactionTableName;
     private final String itemImageTableName;
     private final ConcurrentHashMap<String, List<KeySchemaElement>> tableSchemaCache = new ConcurrentHashMap<String, List<KeySchemaElement>>();
@@ -74,15 +87,11 @@ public class TransactionManager {
     private final ReadUncommittedIsolationHandlerImpl readUncommittedIsolationHandler;
     private final ReadCommittedIsolationHandlerImpl readCommittedIsolationHandler;
     
-    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName) {
-    	this(client, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
+    public TransactionManager(AmazonDynamoDB client, AmazonDaxClient daxClient, String transactionTableName, String itemImageTableName) {
+    	this(client, daxClient, transactionTableName, itemImageTableName, DynamoDBMapperConfig.DEFAULT);
     }
 
-    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
-        this(client, transactionTableName, itemImageTableName, config, null);
-    }
-
-    public TransactionManager(AmazonDynamoDB client, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config, AttributeTransformer transformer) {
+    public TransactionManager(AmazonDynamoDB client, AmazonDaxClient daxClient, String transactionTableName, String itemImageTableName, DynamoDBMapperConfig config) {
         if(client == null) {
             throw new IllegalArgumentException("client must not be null");
         }
@@ -93,6 +102,7 @@ public class TransactionManager {
             throw new IllegalArgumentException("itemImageTableName must not be null");
         }
         this.client = client;
+        this.daxClient= daxClient;
         this.transactionTableName = transactionTableName;
         this.itemImageTableName = itemImageTableName;
         this.facadeProxy = new ThreadLocalDynamoDBFacade();
@@ -154,6 +164,10 @@ public class TransactionManager {
 
     public DynamoDBMapper getClientMapper() {
         return clientMapper;
+    }
+
+    public AmazonDaxClient getDaxClient() {
+        return daxClient;
     }
 
     protected ThreadLocalDynamoDBFacade getFacadeProxy() {
@@ -307,6 +321,7 @@ public class TransactionManager {
     public <T> T load(T item,
             IsolationLevel isolationLevel) {
         try {
+            log.info("loading details using TranscationManager");
             getFacadeProxy().setBackend(new TransactionManagerDynamoDBFacade(this, isolationLevel));
             return getClientMapper().load(item);
         } finally {

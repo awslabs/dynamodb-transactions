@@ -155,7 +155,11 @@ class TransactionItem {
             .withExpected(expectNotExists);
         
         try {
-            txManager.getClient().putItem(request);
+            if(txManager.getDaxClient() != null) {
+                txManager.getDaxClient().putItem(request);
+            } else {
+                txManager.getClient().putItem(request);
+            }
             return item;
         } catch (ConditionalCheckFailedException e) {
             throw new TransactionException("Failed to create new transaction with id " + txId, e);
@@ -172,7 +176,7 @@ class TransactionItem {
             .withTableName(txManager.getTransactionTableName())
             .withKey(txKey)
             .withConsistentRead(true);
-        return txManager.getClient().getItem(getRequest).getItem();
+        return (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(getRequest).getItem() : txManager.getClient().getItem(getRequest).getItem();
     }
     
     /**
@@ -300,7 +304,7 @@ class TransactionItem {
             .withAttributeUpdates(txItemUpdates);
         
         try {
-            txItem = txManager.getClient().updateItem(txItemUpdateRequest).getAttributes();
+            txItem = (txManager.getDaxClient() != null) ? txManager.getDaxClient().updateItem(txItemUpdateRequest).getAttributes() : txManager.getClient().updateItem(txItemUpdateRequest).getAttributes();
             int newVersion = Integer.parseInt(txItem.get(AttributeName.VERSION.toString()).getN());
             txAssert(newVersion == version + 1, txId, "Unexpected version number from update result");
             version = newVersion;
@@ -408,10 +412,17 @@ class TransactionItem {
         
         // TODO failures?  Size validation?
         try {
-            txManager.getClient().putItem(new PutItemRequest()
-                .withTableName(txManager.getItemImageTableName())
-                .withExpected(expected)
-                .withItem(item));
+            if(txManager.getDaxClient() != null) {
+                txManager.getDaxClient().putItem(new PutItemRequest()
+                        .withTableName(txManager.getItemImageTableName())
+                        .withExpected(expected)
+                        .withItem(item));
+            } else {
+                txManager.getClient().putItem(new PutItemRequest()
+                        .withTableName(txManager.getItemImageTableName())
+                        .withExpected(expected)
+                        .withItem(item));
+            }
         } catch (ConditionalCheckFailedException e) {
             // Already was saved
         }
@@ -432,7 +443,10 @@ class TransactionItem {
         Map<String, AttributeValue> key = new HashMap<String, AttributeValue>(1);
         key.put(AttributeName.IMAGE_ID.toString(), new AttributeValue(txId + "#" + rid));
         
-        Map<String, AttributeValue> item = txManager.getClient().getItem(new GetItemRequest()
+        Map<String, AttributeValue> item = (txManager.getDaxClient() != null) ? txManager.getDaxClient().getItem(new GetItemRequest()
+            .withTableName(txManager.getItemImageTableName())
+            .withKey(key)
+            .withConsistentRead(true)).getItem() : txManager.getClient().getItem(new GetItemRequest()
             .withTableName(txManager.getItemImageTableName())
             .withKey(key)
             .withConsistentRead(true)).getItem();
@@ -455,10 +469,16 @@ class TransactionItem {
         
         Map<String, AttributeValue> key = new HashMap<String, AttributeValue>(1);
         key.put(AttributeName.IMAGE_ID.toString(), new AttributeValue(txId + "#" + rid));
-        
-        txManager.getClient().deleteItem(new DeleteItemRequest()
-            .withTableName(txManager.getItemImageTableName())
-            .withKey(key));
+
+        if(txManager.getDaxClient() != null) {
+            txManager.getDaxClient().deleteItem(new DeleteItemRequest()
+                    .withTableName(txManager.getItemImageTableName())
+                    .withKey(key));
+        } else {
+            txManager.getClient().deleteItem(new DeleteItemRequest()
+                    .withTableName(txManager.getItemImageTableName())
+                    .withKey(key));
+        }
     }
     
     /*
@@ -496,7 +516,7 @@ class TransactionItem {
             .withReturnValues(ReturnValue.ALL_NEW)
             .withExpected(expected);
         
-        UpdateItemResult finishResult = txManager.getClient().updateItem(finishRequest);
+        UpdateItemResult finishResult = (txManager.getDaxClient() != null) ? txManager.getDaxClient().updateItem(finishRequest): txManager.getClient().updateItem(finishRequest);
         txItem = finishResult.getAttributes();
         if(txItem == null) {
             throw new TransactionAssertionException(txId, "Unexpected null tx item after committing " + targetState);
@@ -538,7 +558,7 @@ class TransactionItem {
             .withReturnValues(ReturnValue.ALL_NEW)
             .withExpected(expected);
         
-        txItem = txManager.getClient().updateItem(completeRequest).getAttributes();
+        txItem = (txManager.getDaxClient() != null) ? txManager.getDaxClient().updateItem(completeRequest).getAttributes() : txManager.getClient().updateItem(completeRequest).getAttributes();
     }
     
     /**
@@ -554,7 +574,11 @@ class TransactionItem {
             .withTableName(txManager.getTransactionTableName())
             .withKey(txKey)
             .withExpected(expected);
-        txManager.getClient().deleteItem(completeRequest);
+        if(txManager.getDaxClient() != null) {
+            txManager.getDaxClient().deleteItem(completeRequest);
+        } else {
+            txManager.getClient().deleteItem(completeRequest);
+        }
     }
     
     public boolean isCompleted() {

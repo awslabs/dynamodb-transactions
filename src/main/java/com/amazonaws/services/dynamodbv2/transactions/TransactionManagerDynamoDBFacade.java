@@ -24,14 +24,20 @@ import com.amazonaws.services.dynamodbv2.model.DeleteItemRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteItemResult;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DeleteTableResult;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsRequest;
+import com.amazonaws.services.dynamodbv2.model.DescribeLimitsResult;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest;
 import com.amazonaws.services.dynamodbv2.model.DescribeTableResult;
+import com.amazonaws.services.dynamodbv2.model.DescribeTimeToLiveRequest;
+import com.amazonaws.services.dynamodbv2.model.DescribeTimeToLiveResult;
 import com.amazonaws.services.dynamodbv2.model.GetItemRequest;
 import com.amazonaws.services.dynamodbv2.model.GetItemResult;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
 import com.amazonaws.services.dynamodbv2.model.KeysAndAttributes;
 import com.amazonaws.services.dynamodbv2.model.ListTablesRequest;
 import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
+import com.amazonaws.services.dynamodbv2.model.ListTagsOfResourceRequest;
+import com.amazonaws.services.dynamodbv2.model.ListTagsOfResourceResult;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.PutItemRequest;
 import com.amazonaws.services.dynamodbv2.model.PutItemResult;
@@ -39,12 +45,19 @@ import com.amazonaws.services.dynamodbv2.model.QueryRequest;
 import com.amazonaws.services.dynamodbv2.model.QueryResult;
 import com.amazonaws.services.dynamodbv2.model.ScanRequest;
 import com.amazonaws.services.dynamodbv2.model.ScanResult;
+import com.amazonaws.services.dynamodbv2.model.TagResourceRequest;
+import com.amazonaws.services.dynamodbv2.model.TagResourceResult;
+import com.amazonaws.services.dynamodbv2.model.UntagResourceRequest;
+import com.amazonaws.services.dynamodbv2.model.UntagResourceResult;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateItemResult;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.UpdateTableResult;
+import com.amazonaws.services.dynamodbv2.model.UpdateTimeToLiveRequest;
+import com.amazonaws.services.dynamodbv2.model.UpdateTimeToLiveResult;
 import com.amazonaws.services.dynamodbv2.model.WriteRequest;
 import com.amazonaws.services.dynamodbv2.transactions.Transaction.IsolationLevel;
+import com.amazonaws.services.dynamodbv2.waiters.AmazonDynamoDBWaiters;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -272,6 +285,11 @@ public class TransactionManagerDynamoDBFacade extends AbstractAmazonDynamoDB {
     }
 
     @Override
+    public AmazonDynamoDBWaiters waiters() {
+        return null;
+    }
+
+    @Override
     public ListTablesResult listTables() throws AmazonServiceException,
             AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
@@ -305,6 +323,35 @@ public class TransactionManagerDynamoDBFacade extends AbstractAmazonDynamoDB {
     }
 
     @Override
+    public ScanResult scan(String tableName, List<String> attributesToGet)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ScanResult scan(String tableName, Map<String, Condition> scanFilter)
+            throws AmazonServiceException, AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ScanResult scan(String tableName, List<String> attributesToGet,
+            Map<String, Condition> scanFilter) throws AmazonServiceException,
+            AmazonClientException {
+        throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public TagResourceResult tagResource(TagResourceRequest tagResourceRequest) {
+        return null;
+    }
+
+    @Override
+    public UntagResourceResult untagResource(UntagResourceRequest untagResourceRequest) {
+        return null;
+    }
+
+    @Override
     public UpdateTableResult updateTable(String tableName,
             ProvisionedThroughput provisionedThroughput)
             throws AmazonServiceException, AmazonClientException {
@@ -312,9 +359,19 @@ public class TransactionManagerDynamoDBFacade extends AbstractAmazonDynamoDB {
     }
 
     @Override
+    public UpdateTimeToLiveResult updateTimeToLive(UpdateTimeToLiveRequest updateTimeToLiveRequest) {
+        return null;
+    }
+
+    @Override
     public DeleteTableResult deleteTable(String tableName)
             throws AmazonServiceException, AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public DescribeLimitsResult describeLimits(DescribeLimitsRequest describeLimitsRequest) {
+        return null;
     }
 
     @Override
@@ -328,6 +385,11 @@ public class TransactionManagerDynamoDBFacade extends AbstractAmazonDynamoDB {
     public DescribeTableResult describeTable(String tableName)
             throws AmazonServiceException, AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public DescribeTimeToLiveResult describeTimeToLive(DescribeTimeToLiveRequest describeTimeToLiveRequest) {
+        return null;
     }
 
     @Override
@@ -383,6 +445,11 @@ public class TransactionManagerDynamoDBFacade extends AbstractAmazonDynamoDB {
     public ListTablesResult listTables(Integer limit)
             throws AmazonServiceException, AmazonClientException {
         throw new UnsupportedOperationException("Use the underlying client instance instead");
+    }
+
+    @Override
+    public ListTagsOfResourceResult listTagsOfResource(ListTagsOfResourceRequest listTagsOfResourceRequest) {
+        return null;
     }
 
     @Override
